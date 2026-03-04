@@ -65,12 +65,12 @@ export default function Presentation({
   const transitionDuration = presentation.settings?.transitionDuration || 1000
 
   return (
-    <div className="presentation-slide bg-black">
+    <div className="presentation-slide bg-black w-screen h-screen overflow-hidden">
       {currentSlide?.isVideo ? (
         <video
           ref={videoRef}
           src={currentSlide.url}
-          className="max-w-full max-h-full object-contain"
+          className="w-full h-full object-cover"
           style={{
             opacity: isTransitioning ? 0 : 1,
             transition: `opacity ${transitionDuration / 2}ms ease-in-out`
@@ -83,7 +83,7 @@ export default function Presentation({
         <img
           src={currentSlide?.url}
           alt=""
-          className="max-w-full max-h-full object-contain"
+          className="w-full h-full object-cover"
           style={{
             opacity: isTransitioning ? 0 : 1,
             transition: `opacity ${transitionDuration / 2}ms ease-in-out`
