@@ -54,7 +54,7 @@ export async function loadFarewellFile(filePath) {
     }
   }
   
-  // Laad audio als blob URLs
+  // Laad audio als blob URLs en koppel aan sessies
   const audioTracks = []
   const audioFolder = zip.folder('audio')
   
@@ -72,14 +72,35 @@ export async function loadFarewellFile(filePath) {
     for (const { path, file } of audioFiles) {
       const blob = await file.async('blob')
       const url = URL.createObjectURL(blob)
+      const fullPath = `audio/${path}`
       
       audioTracks.push({
-        path,
+        path: fullPath,
         url,
         name: path.replace(/^\d+_/, '').replace(/\.(mp3|wav|m4a)$/i, '')
       })
     }
   }
+  
+  // Koppel audio URLs aan sessies
+  const sessionsWithAudio = (manifest.sessions || []).map(session => {
+    if (session.audio?.file) {
+      const matchingTrack = audioTracks.find(t => 
+        t.path === session.audio.file || 
+        t.path.endsWith(session.audio.file.split('/').pop())
+      )
+      if (matchingTrack) {
+        return {
+          ...session,
+          audio: {
+            ...session.audio,
+            url: matchingTrack.url
+          }
+        }
+      }
+    }
+    return session
+  })
   
   // Laad thumbnail indien aanwezig
   let thumbnailUrl = null
@@ -95,7 +116,7 @@ export async function loadFarewellFile(filePath) {
     audioTracks,
     thumbnailUrl,
     name: manifest.name || 'Presentatie',
-    sessions: manifest.sessions || [],
+    sessions: sessionsWithAudio,
     settings: manifest.settings || {
       transition: 'fade',
       transitionDuration: 1000,

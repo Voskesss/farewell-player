@@ -329,7 +329,7 @@ export default function Controller({
               const session = range.session
               const isCurrentSession = sessionIdx === currentSessionIndex
               const sessionSlides = slides.slice(range.start, range.end + 1)
-              const hasAudio = session.audio?.file
+              const hasAudio = session.audio?.url || session.audio?.file
               const sessionExternalMusic = externalMusic?.filter(m => m.sessionId === session.id) || []
               
               return (
@@ -410,7 +410,7 @@ export default function Controller({
                         </div>
                         <audio
                           ref={el => audioRefs.current[sessionIdx] = el}
-                          src={audioTracks?.find(t => t.path?.includes(session.audio.file?.split('/').pop()))?.url}
+                          src={session.audio.url}
                           onEnded={() => setPlayingAudioSession(null)}
                           className="hidden"
                         />
