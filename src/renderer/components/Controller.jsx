@@ -117,18 +117,29 @@ export default function Controller({
   // Check of huidige slide een video is
   const currentSlideIsVideo = slides[currentSlideIndex]?.isVideo
 
-  // Auto-play timer met sessie-specifieke duration
+  // Auto-play timer met sessie-specifieke duration en loop support
   // Pauzeer timer als huidige slide een video is (video bepaalt eigen timing)
   useEffect(() => {
     // Skip timer voor video slides - video onEnded handler gaat naar volgende slide
     if (isPlaying && !currentSlideIsVideo) {
       const advanceSlide = () => {
+        const currentRange = sessionSlideRanges[currentSessionIndex]
+        const isLastSlideInSession = currentSlideIndex === currentRange?.end
+        const sessionHasLoop = currentRange?.session?.loop
+        
         setCurrentSlideIndex(prev => {
-          const next = prev + 1
-          if (next >= slides.length) {
+          let next = prev + 1
+          
+          // Check of we aan het einde van de sessie zijn
+          if (isLastSlideInSession && sessionHasLoop) {
+            // Loop terug naar begin van deze sessie
+            next = currentRange.start
+          } else if (next >= slides.length) {
+            // Einde van presentatie
             setIsPlaying(false)
             return prev
           }
+          
           // Sync met presentatie venster
           if (window.electronAPI) {
             window.electronAPI.sendToPresentation('goto', { index: next })
@@ -147,7 +158,7 @@ export default function Controller({
         clearTimeout(autoPlayTimerRef.current)
       }
     }
-  }, [isPlaying, currentSlideIndex, getCurrentSlideDuration, slides.length, currentSlideIsVideo])
+  }, [isPlaying, currentSlideIndex, getCurrentSlideDuration, slides.length, currentSlideIsVideo, sessionSlideRanges, currentSessionIndex])
 
   const goToSlide = useCallback((index) => {
     const clampedIndex = Math.max(0, Math.min(index, slides.length - 1))
@@ -367,35 +378,45 @@ export default function Controller({
                 >
                   {/* Sessie header */}
                   <div 
-                    className={`p-3 cursor-pointer hover:bg-slate-700/30 transition ${isCurrentSession ? 'bg-primary-900/30' : ''}`}
+                    className={`p-3 cursor-pointer transition ${
+                      isCurrentSession 
+                        ? 'bg-primary-600/20 border-l-4 border-primary-500' 
+                        : 'hover:bg-slate-700/30 border-l-4 border-transparent'
+                    }`}
                     onClick={() => goToSlide(range.start)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
                           isCurrentSession ? 'bg-primary-500 text-white' : 'bg-slate-600 text-slate-300'
                         }`}>
                           {sessionIdx + 1}
                         </span>
-                        <span className={`font-medium ${isCurrentSession ? 'text-white' : 'text-slate-300'}`}>
-                          {session.name || `Sessie ${sessionIdx + 1}`}
-                        </span>
+                        <div>
+                          <span className={`font-medium block ${isCurrentSession ? 'text-white' : 'text-slate-300'}`}>
+                            {session.name || `Sessie ${sessionIdx + 1}`}
+                            {session.loop && <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">🔁 Loop</span>}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {sessionSlides.length} slides • {session.slideDuration || settings.defaultSlideDuration || 5}s
+                            {session.speakerNotes && ' • 📝'}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-xs text-slate-500">
-                        {sessionSlides.length} slides
-                      </span>
+                      {/* Expand indicator */}
+                      <svg 
+                        className={`w-5 h-5 transition-transform ${isCurrentSession ? 'text-primary-400 rotate-180' : 'text-slate-500'}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
                     </div>
-                    
-                    {/* Slide duur indicator */}
-                    {session.slideDuration && (
-                      <div className="mt-1 text-xs text-slate-500">
-                        ⏱️ {session.slideDuration}s per slide
-                      </div>
-                    )}
                   </div>
                   
-                  {/* Muziek speler voor deze sessie */}
-                  {(hasAudio || sessionExternalMusic.length > 0 || isCurrentSession) && (
+                  {/* Muziek speler - ALLEEN voor huidige sessie */}
+                  {isCurrentSession && (
                     <div className="px-3 pb-2">
                       <MusicPlayer
                         session={session}
@@ -410,6 +431,29 @@ export default function Controller({
                           }
                         }}
                       />
+                    </div>
+                  )}
+                  
+                  {/* Collapsed audio indicator voor niet-actieve sessies */}
+                  {!isCurrentSession && (hasAudio || sessionExternalMusic.length > 0) && (
+                    <div className="px-3 pb-2">
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        {hasAudio && <span>🎵 Audio</span>}
+                        {sessionExternalMusic.some(m => m.spotifyUrl) && <span>🎧 Spotify</span>}
+                        {sessionExternalMusic.some(m => m.youtubeUrl) && <span>▶️ YouTube</span>}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Spreker notities (alleen voor huidige sessie) */}
+                  {isCurrentSession && session.speakerNotes && (
+                    <div className="px-3 pb-2">
+                      <div className="bg-amber-900/20 border border-amber-700/30 rounded-lg p-2">
+                        <div className="flex items-center gap-1 text-xs text-amber-400 mb-1">
+                          <span>📝</span> Spreker notities
+                        </div>
+                        <p className="text-xs text-amber-200/80 whitespace-pre-wrap">{session.speakerNotes}</p>
+                      </div>
                     </div>
                   )}
                   
