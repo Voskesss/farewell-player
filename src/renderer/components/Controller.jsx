@@ -117,11 +117,16 @@ export default function Controller({
   // Check of huidige slide een video is
   const currentSlideIsVideo = slides[currentSlideIndex]?.isVideo
 
+  // Check of huidige sessie speakerMode heeft (handmatig doorklikken)
+  const currentSessionIsSpeakerMode = sessionSlideRanges[currentSessionIndex]?.session?.speakerMode
+
   // Auto-play timer met sessie-specifieke duration en loop support
   // Pauzeer timer als huidige slide een video is (video bepaalt eigen timing)
+  // Pauzeer timer als sessie speakerMode heeft (handmatig doorklikken)
   useEffect(() => {
     // Skip timer voor video slides - video onEnded handler gaat naar volgende slide
-    if (isPlaying && !currentSlideIsVideo) {
+    // Skip timer voor speakerMode sessies - handmatig doorklikken
+    if (isPlaying && !currentSlideIsVideo && !currentSessionIsSpeakerMode) {
       const advanceSlide = () => {
         const currentRange = sessionSlideRanges[currentSessionIndex]
         const isLastSlideInSession = currentSlideIndex === currentRange?.end
@@ -134,7 +139,17 @@ export default function Controller({
           if (isLastSlideInSession && sessionHasLoop) {
             // Loop terug naar begin van deze sessie
             next = currentRange.start
-          } else if (next >= slides.length) {
+          } else if (isLastSlideInSession) {
+            // Einde van sessie - check of volgende sessie speakerMode heeft
+            const nextSessionIdx = currentSessionIndex + 1
+            const nextSession = sessionSlideRanges[nextSessionIdx]?.session
+            if (nextSession?.speakerMode) {
+              // Pauzeer bij start van speakerMode sessie
+              setIsPlaying(false)
+            }
+          }
+          
+          if (next >= slides.length) {
             // Einde van presentatie
             setIsPlaying(false)
             return prev
@@ -158,7 +173,7 @@ export default function Controller({
         clearTimeout(autoPlayTimerRef.current)
       }
     }
-  }, [isPlaying, currentSlideIndex, getCurrentSlideDuration, slides.length, currentSlideIsVideo, sessionSlideRanges, currentSessionIndex])
+  }, [isPlaying, currentSlideIndex, getCurrentSlideDuration, slides.length, currentSlideIsVideo, currentSessionIsSpeakerMode, sessionSlideRanges, currentSessionIndex])
 
   const goToSlide = useCallback((index) => {
     const clampedIndex = Math.max(0, Math.min(index, slides.length - 1))
@@ -395,6 +410,7 @@ export default function Controller({
                           <span className={`font-medium block ${isCurrentSession ? 'text-white' : 'text-slate-300'}`}>
                             {session.name || `Sessie ${sessionIdx + 1}`}
                             {session.loop && <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">🔁 Loop</span>}
+                            {session.speakerMode && <span className="ml-2 text-xs bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded">🎤 Spreker</span>}
                           </span>
                           <span className="text-xs text-slate-500">
                             {sessionSlides.length} slides • {session.slideDuration || settings.defaultSlideDuration || 5}s
