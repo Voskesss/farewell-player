@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 export default function Presentation({
   presentation,
   currentSlideIndex,
-  isPlaying
+  isPlaying,
+  onVideoEnded
 }) {
   const [displayedSlideIndex, setDisplayedSlideIndex] = useState(currentSlideIndex)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -22,16 +23,35 @@ export default function Presentation({
     }
   }, [currentSlideIndex, displayedSlideIndex])
 
-  // Auto-play video's
+  // Auto-play video's wanneer slide verandert
+  useEffect(() => {
+    const currentSlide = presentation?.slides[displayedSlideIndex]
+    if (videoRef.current && currentSlide?.isVideo) {
+      // Reset video naar begin en speel af
+      videoRef.current.currentTime = 0
+      videoRef.current.play().catch(err => {
+        console.warn('Video autoplay geblokkeerd:', err)
+      })
+    }
+  }, [displayedSlideIndex, presentation])
+
+  // Pauzeer/hervat video op basis van isPlaying
   useEffect(() => {
     if (videoRef.current && presentation?.slides[displayedSlideIndex]?.isVideo) {
       if (isPlaying) {
-        videoRef.current.play()
+        videoRef.current.play().catch(() => {})
       } else {
         videoRef.current.pause()
       }
     }
   }, [isPlaying, displayedSlideIndex, presentation])
+
+  // Video ended handler
+  const handleVideoEnded = () => {
+    if (onVideoEnded) {
+      onVideoEnded()
+    }
+  }
 
   if (!presentation || !presentation.slides || presentation.slides.length === 0) {
     return (
@@ -55,8 +75,9 @@ export default function Presentation({
             opacity: isTransitioning ? 0 : 1,
             transition: `opacity ${transitionDuration / 2}ms ease-in-out`
           }}
-          autoPlay={isPlaying}
+          autoPlay
           muted={false}
+          onEnded={handleVideoEnded}
         />
       ) : (
         <img

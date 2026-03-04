@@ -113,9 +113,14 @@ export default function Controller({
     return (sessionDuration || settings.defaultSlideDuration || 5) * 1000
   }, [currentSessionIndex, sessionSlideRanges, settings.defaultSlideDuration])
 
+  // Check of huidige slide een video is
+  const currentSlideIsVideo = slides[currentSlideIndex]?.isVideo
+
   // Auto-play timer met sessie-specifieke duration
+  // Pauzeer timer als huidige slide een video is (video bepaalt eigen timing)
   useEffect(() => {
-    if (isPlaying) {
+    // Skip timer voor video slides - video onEnded handler gaat naar volgende slide
+    if (isPlaying && !currentSlideIsVideo) {
       const advanceSlide = () => {
         setCurrentSlideIndex(prev => {
           const next = prev + 1
@@ -141,7 +146,7 @@ export default function Controller({
         clearTimeout(autoPlayTimerRef.current)
       }
     }
-  }, [isPlaying, currentSlideIndex, getCurrentSlideDuration, slides.length])
+  }, [isPlaying, currentSlideIndex, getCurrentSlideDuration, slides.length, currentSlideIsVideo])
 
   const goToSlide = useCallback((index) => {
     const clampedIndex = Math.max(0, Math.min(index, slides.length - 1))
@@ -152,6 +157,18 @@ export default function Controller({
       window.electronAPI.sendToPresentation('goto', { index: clampedIndex })
     }
   }, [slides.length, setCurrentSlideIndex])
+
+  // Handler voor wanneer video eindigt - ga naar volgende slide
+  const handleVideoEnded = useCallback(() => {
+    if (isPlaying) {
+      const next = currentSlideIndex + 1
+      if (next < slides.length) {
+        goToSlide(next)
+      } else {
+        setIsPlaying(false)
+      }
+    }
+  }, [isPlaying, currentSlideIndex, slides.length, goToSlide, setIsPlaying])
 
   const openPresentationWindow = async () => {
     if (window.electronAPI) {
@@ -234,13 +251,23 @@ export default function Controller({
       <div className="flex-1 flex overflow-hidden">
         {/* Slide preview */}
         <div className="flex-1 flex flex-col p-6">
-          <div className="flex-1 bg-black rounded-xl overflow-hidden flex items-center justify-center">
+          <div className="flex-1 bg-black rounded-xl overflow-hidden flex items-center justify-center relative">
             {currentSlide?.isVideo ? (
-              <video
-                src={currentSlide.url}
-                className="max-w-full max-h-full object-contain"
-                controls
-              />
+              <>
+                <video
+                  src={currentSlide.url}
+                  className="max-w-full max-h-full object-contain"
+                  controls
+                  onEnded={handleVideoEnded}
+                />
+                {/* Video indicator */}
+                <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  VIDEO
+                </div>
+              </>
             ) : (
               <img
                 src={currentSlide?.url}
