@@ -312,7 +312,7 @@ export default function MusicPlayer({
           </div>
         )}
 
-        {/* YouTube Embed */}
+        {/* YouTube - Open in browser (iframe werkt niet in Electron) */}
         {activeTab === 'youtube' && youtubeTrack && (
           <div>
             <div className="bg-amber-900/30 border border-amber-700/50 rounded-lg p-2 mb-3">
@@ -320,16 +320,35 @@ export default function MusicPlayer({
                 <span>⚡</span> Vereist internetverbinding
               </p>
             </div>
-            <div className="aspect-video rounded-lg overflow-hidden">
-              <iframe
-                src={getYouTubeEmbedUrl(youtubeTrack.youtubeUrl)}
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="rounded-lg"
-              />
+            
+            {/* YouTube info */}
+            <div className="bg-slate-900 rounded-lg p-4 text-center">
+              <div className="w-16 h-16 mx-auto mb-3 bg-red-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/>
+                </svg>
+              </div>
+              
+              <p className="text-white font-medium mb-1">{youtubeTrack.name || 'YouTube Video'}</p>
+              {youtubeTrack.artist && (
+                <p className="text-slate-400 text-sm mb-4">{youtubeTrack.artist}</p>
+              )}
+              
+              <a
+                href={youtubeTrack.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M10 15l5.19-3L10 9v6z"/>
+                </svg>
+                Open in YouTube
+              </a>
+              
+              <p className="text-xs text-slate-500 mt-3">
+                Opent in je standaard browser
+              </p>
             </div>
           </div>
         )}
