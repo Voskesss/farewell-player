@@ -16,6 +16,7 @@
     "build:linux": "vite build && electron-builder --linux"
   },
   "dependencies": {
+    "canvas": "^3.2.1",
     "jszip": "^3.10.1"
   },
   "devDependencies": {

@@ -70,9 +70,9 @@ function createPresentationWindow(displayId = null) {
     height: targetDisplay.bounds.height,
     fullscreen: true,
     frame: false,
-    kiosk: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
+    kiosk: false, // Kiosk uit voor development - makkelijker te sluiten
+    alwaysOnTop: false, // Uit voor development
+    skipTaskbar: false,
     autoHideMenuBar: true,
     backgroundColor: '#000000',
     webPreferences: {
@@ -95,10 +95,10 @@ function createPresentationWindow(displayId = null) {
     presentationWindow.webContents.insertCSS('* { cursor: none !important; }')
   })
 
-  // Blokkeer keyboard shortcuts behalve ESC
+  // ESC sluit het presentatie venster
   presentationWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key !== 'Escape') {
-      // Laat alleen onze eigen shortcuts door via IPC
+    if (input.key === 'Escape' && input.type === 'keyDown') {
+      presentationWindow.close()
     }
   })
 
