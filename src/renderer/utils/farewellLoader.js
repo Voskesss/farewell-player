@@ -82,24 +82,39 @@ export async function loadFarewellFile(filePath) {
     }
   }
   
-  // Koppel audio URLs aan sessies
+  // Koppel audio URLs aan sessies (ondersteun meerdere tracks)
   const sessionsWithAudio = (manifest.sessions || []).map(session => {
+    let updatedSession = { ...session }
+    
+    // Koppel enkele audio track (backwards compatibility)
     if (session.audio?.file) {
       const matchingTrack = audioTracks.find(t => 
         t.path === session.audio.file || 
         t.path.endsWith(session.audio.file.split('/').pop())
       )
       if (matchingTrack) {
-        return {
-          ...session,
-          audio: {
-            ...session.audio,
-            url: matchingTrack.url
-          }
+        updatedSession.audio = {
+          ...session.audio,
+          url: matchingTrack.url
         }
       }
     }
-    return session
+    
+    // Koppel meerdere audio tracks
+    if (session.audioTracks?.length > 0) {
+      updatedSession.audioTracks = session.audioTracks.map(track => {
+        const matchingTrack = audioTracks.find(t => 
+          t.path === track.file || 
+          t.path.endsWith(track.file.split('/').pop())
+        )
+        return {
+          ...track,
+          url: matchingTrack?.url || null
+        }
+      }).filter(t => t.url) // Filter tracks zonder URL
+    }
+    
+    return updatedSession
   })
   
   // Laad thumbnail indien aanwezig

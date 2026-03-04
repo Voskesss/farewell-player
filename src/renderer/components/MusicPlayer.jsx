@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from 'react'
  * MusicPlayer component - Geïntegreerde muziek speler
  * 
  * Ondersteunt:
- * - Embedded audio uit .farewell bestand
+ * - Meerdere embedded audio tracks uit .farewell bestand
  * - Eigen lokale MP3 bestanden toevoegen
+ * - Playlist functionaliteit met next/prev
+ * - Loop modus voor sessies
  */
 export default function MusicPlayer({ 
   session, 
@@ -19,10 +21,16 @@ export default function MusicPlayer({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
   const audioRef = useRef(null)
 
-  // Bepaal welke audio beschikbaar is
-  const hasEmbeddedAudio = session?.audio?.url
+  // Haal alle embedded tracks op (meerdere tracks per sessie)
+  const embeddedTracks = session?.audioTracks?.length > 0 
+    ? session.audioTracks 
+    : (session?.audio?.url ? [session.audio] : [])
+  
+  const hasEmbeddedAudio = embeddedTracks.length > 0
+  const currentTrack = embeddedTracks[currentTrackIndex]
 
   // Lokaal bestand selecteren
   const handleSelectLocalFile = async () => {
@@ -97,7 +105,33 @@ export default function MusicPlayer({
   }, [localAudioUrl])
 
   // Bepaal huidige audio source
-  const currentAudioUrl = activeTab === 'local' ? localAudioUrl : session?.audio?.url
+  const currentAudioUrl = activeTab === 'local' ? localAudioUrl : currentTrack?.url
+
+  // Ga naar volgende track
+  const goToNextTrack = () => {
+    if (currentTrackIndex < embeddedTracks.length - 1) {
+      setCurrentTrackIndex(currentTrackIndex + 1)
+      setCurrentTime(0)
+    } else if (session?.loop) {
+      // Loop: ga terug naar eerste track
+      setCurrentTrackIndex(0)
+      setCurrentTime(0)
+    }
+  }
+
+  // Ga naar vorige track
+  const goToPrevTrack = () => {
+    if (currentTrackIndex > 0) {
+      setCurrentTrackIndex(currentTrackIndex - 1)
+      setCurrentTime(0)
+    }
+  }
+
+  // Reset track index wanneer sessie verandert
+  useEffect(() => {
+    setCurrentTrackIndex(0)
+    setCurrentTime(0)
+  }, [session?.id])
 
   return (
     <div className={`rounded-lg overflow-hidden ${isCurrentSession ? 'bg-slate-800' : 'bg-slate-800/50'}`}>
@@ -158,11 +192,16 @@ export default function MusicPlayer({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white font-medium truncate">
-                      {activeTab === 'local' ? localAudioName : (session?.audio?.file?.split('/').pop() || 'Audio')}
+                      {activeTab === 'local' 
+                        ? localAudioName 
+                        : (currentTrack?.name || currentTrack?.file?.split('/').pop() || 'Audio')}
                       {session?.loop && <span className="ml-2 text-xs text-amber-400">🔁</span>}
                     </p>
                     <p className="text-xs text-slate-400">
                       {formatTime(currentTime)} / {formatTime(duration)}
+                      {embeddedTracks.length > 1 && activeTab === 'embedded' && (
+                        <span> • Track {currentTrackIndex + 1}/{embeddedTracks.length}</span>
+                      )}
                       {session?.loop && ' • herhalend'}
                     </p>
                   </div>
@@ -221,18 +260,87 @@ export default function MusicPlayer({
                 <audio
                   ref={audioRef}
                   src={currentAudioUrl}
-                  loop={session?.loop || false}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
                   onEnded={() => {
-                    // Bij loop sessies herstart audio automatisch (via loop attribuut)
-                    // Bij normale sessies: stop
-                    if (!session?.loop) {
-                      setIsPlaying(false)
-                      onAudioStateChange?.(false)
+                    // Bij meerdere tracks: ga naar volgende
+                    if (activeTab === 'embedded' && embeddedTracks.length > 1) {
+                      if (currentTrackIndex < embeddedTracks.length - 1) {
+                        // Volgende track
+                        setCurrentTrackIndex(prev => prev + 1)
+                        setTimeout(() => {
+                          if (audioRef.current) {
+                            audioRef.current.play()
+                          }
+                        }, 100)
+                        return
+                      } else if (session?.loop) {
+                        // Loop: terug naar eerste track
+                        setCurrentTrackIndex(0)
+                        setTimeout(() => {
+                          if (audioRef.current) {
+                            audioRef.current.play()
+                          }
+                        }, 100)
+                        return
+                      }
                     }
+                    // Enkele track met loop
+                    if (session?.loop && embeddedTracks.length === 1) {
+                      if (audioRef.current) {
+                        audioRef.current.currentTime = 0
+                        audioRef.current.play()
+                      }
+                      return
+                    }
+                    // Geen loop: stop
+                    setIsPlaying(false)
+                    onAudioStateChange?.(false)
                   }}
                 />
+
+                {/* Track navigatie voor meerdere tracks */}
+                {activeTab === 'embedded' && embeddedTracks.length > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-slate-700">
+                    <button
+                      onClick={goToPrevTrack}
+                      disabled={currentTrackIndex === 0}
+                      className={`p-2 rounded-lg transition ${
+                        currentTrackIndex === 0 
+                          ? 'text-slate-600 cursor-not-allowed' 
+                          : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z" />
+                      </svg>
+                    </button>
+                    <div className="flex gap-1">
+                      {embeddedTracks.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentTrackIndex(idx)}
+                          className={`w-2 h-2 rounded-full transition ${
+                            idx === currentTrackIndex ? 'bg-primary-500' : 'bg-slate-600 hover:bg-slate-500'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      onClick={goToNextTrack}
+                      disabled={currentTrackIndex === embeddedTracks.length - 1 && !session?.loop}
+                      className={`p-2 rounded-lg transition ${
+                        currentTrackIndex === embeddedTracks.length - 1 && !session?.loop
+                          ? 'text-slate-600 cursor-not-allowed' 
+                          : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 18l8.5-6L6 6v12zm2 0V6l6.5 6L8 18zm8-12v12h2V6h-2z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
 
                 {/* Verander muziek knop voor local */}
                 {activeTab === 'local' && localAudioUrl && (
