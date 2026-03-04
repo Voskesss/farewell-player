@@ -116,12 +116,28 @@ function createPresentationWindow(displayId = null) {
 
 // IPC Handlers
 
-// Open bestand dialog
+// Open bestand dialog voor .farewell bestanden
 ipcMain.handle('open-file-dialog', async () => {
   const result = await dialog.showOpenDialog(controllerWindow, {
     properties: ['openFile'],
     filters: [
       { name: 'Farewell Presentatie', extensions: ['farewell'] }
+    ]
+  })
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+  
+  return result.filePaths[0]
+})
+
+// Open audio dialog voor eigen muziek
+ipcMain.handle('open-audio-dialog', async () => {
+  const result = await dialog.showOpenDialog(controllerWindow, {
+    properties: ['openFile'],
+    filters: [
+      { name: 'Audio bestanden', extensions: ['mp3', 'wav', 'm4a', 'ogg', 'flac'] }
     ]
   })
   

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import MusicPlayer from './MusicPlayer'
 
 export default function Controller({
   presentation,
@@ -393,97 +394,22 @@ export default function Controller({
                     )}
                   </div>
                   
-                  {/* Audio controls voor deze sessie */}
-                  {hasAudio && (
+                  {/* Muziek speler voor deze sessie */}
+                  {(hasAudio || sessionExternalMusic.length > 0 || isCurrentSession) && (
                     <div className="px-3 pb-2">
-                      <div className="flex items-center gap-2 p-2 bg-slate-900/50 rounded-lg">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const audioEl = audioRefs.current[sessionIdx]
-                            if (audioEl) {
-                              if (playingAudioSession === sessionIdx) {
-                                audioEl.pause()
-                                setPlayingAudioSession(null)
-                              } else {
-                                // Stop andere audio
-                                Object.values(audioRefs.current).forEach(el => el?.pause())
-                                audioEl.play()
-                                setPlayingAudioSession(sessionIdx)
-                              }
-                            }
-                          }}
-                          className={`p-2 rounded-full transition ${
-                            playingAudioSession === sessionIdx 
-                              ? 'bg-amber-500 hover:bg-amber-600' 
-                              : 'bg-primary-500 hover:bg-primary-600'
-                          }`}
-                        >
-                          {playingAudioSession === sessionIdx ? (
-                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          )}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-slate-300 truncate">🎵 {session.audio.file?.split('/').pop() || 'Audio'}</p>
-                          {session.audio.duration && (
-                            <p className="text-xs text-slate-500">{Math.floor(session.audio.duration / 60)}:{String(Math.floor(session.audio.duration % 60)).padStart(2, '0')}</p>
-                          )}
-                        </div>
-                        <audio
-                          ref={el => audioRefs.current[sessionIdx] = el}
-                          src={session.audio.url}
-                          onEnded={() => setPlayingAudioSession(null)}
-                          className="hidden"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Externe muziek voor deze sessie */}
-                  {sessionExternalMusic.length > 0 && (
-                    <div className="px-3 pb-2">
-                      {sessionExternalMusic.map((track, i) => (
-                        <div key={i} className="p-2 bg-amber-900/30 rounded-lg border border-amber-700/50">
-                          <div className="flex items-center gap-2">
-                            <span className="text-amber-400">⚠️</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-amber-200 font-medium truncate">{track.name}</p>
-                              <p className="text-xs text-amber-400/70">{track.artist}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 mt-2">
-                            {track.spotifyUrl && (
-                              <a
-                                href={track.spotifyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex-1 text-center text-xs py-1 px-2 bg-green-600 hover:bg-green-700 text-white rounded transition"
-                              >
-                                🎧 Spotify
-                              </a>
-                            )}
-                            {track.youtubeUrl && (
-                              <a
-                                href={track.youtubeUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex-1 text-center text-xs py-1 px-2 bg-red-600 hover:bg-red-700 text-white rounded transition"
-                              >
-                                ▶️ YouTube
-                              </a>
-                            )}
-                          </div>
-                          <p className="text-xs text-amber-500 mt-1">⚡ Vereist internet</p>
-                        </div>
-                      ))}
+                      <MusicPlayer
+                        session={session}
+                        audioTracks={audioTracks}
+                        externalMusic={sessionExternalMusic}
+                        isCurrentSession={isCurrentSession}
+                        onAudioStateChange={(playing) => {
+                          if (playing) {
+                            setPlayingAudioSession(sessionIdx)
+                          } else {
+                            setPlayingAudioSession(null)
+                          }
+                        }}
+                      />
                     </div>
                   )}
                   

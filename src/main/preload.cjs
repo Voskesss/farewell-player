@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('electronAPI', {
   // Bestand operaties
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
+  openAudioDialog: () => ipcRenderer.invoke('open-audio-dialog'),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   
   // Presentatie venster
