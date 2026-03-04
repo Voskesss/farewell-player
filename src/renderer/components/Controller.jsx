@@ -369,7 +369,6 @@ export default function Controller({
               const isCurrentSession = sessionIdx === currentSessionIndex
               const sessionSlides = slides.slice(range.start, range.end + 1)
               const hasAudio = session.audio?.url || session.audio?.file
-              const sessionExternalMusic = externalMusic?.filter(m => m.sessionId === session.id) || []
               
               return (
                 <div 
@@ -421,7 +420,6 @@ export default function Controller({
                       <MusicPlayer
                         session={session}
                         audioTracks={audioTracks}
-                        externalMusic={sessionExternalMusic}
                         isCurrentSession={isCurrentSession}
                         onAudioStateChange={(playing) => {
                           if (playing) {
@@ -435,12 +433,10 @@ export default function Controller({
                   )}
                   
                   {/* Collapsed audio indicator voor niet-actieve sessies */}
-                  {!isCurrentSession && (hasAudio || sessionExternalMusic.length > 0) && (
+                  {!isCurrentSession && hasAudio && (
                     <div className="px-3 pb-2">
                       <div className="flex items-center gap-2 text-xs text-slate-500">
-                        {hasAudio && <span>🎵 Audio</span>}
-                        {sessionExternalMusic.some(m => m.spotifyUrl) && <span>🎧 Spotify</span>}
-                        {sessionExternalMusic.some(m => m.youtubeUrl) && <span>▶️ YouTube</span>}
+                        <span>🎵 Audio beschikbaar</span>
                       </div>
                     </div>
                   )}

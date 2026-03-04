@@ -6,17 +6,14 @@ import { useState, useRef, useEffect } from 'react'
  * Ondersteunt:
  * - Embedded audio uit .farewell bestand
  * - Eigen lokale MP3 bestanden toevoegen
- * - Spotify embed (in-app)
- * - YouTube embed (in-app)
  */
 export default function MusicPlayer({ 
   session, 
   audioTracks = [],
-  externalMusic = [],
   isCurrentSession,
   onAudioStateChange
 }) {
-  const [activeTab, setActiveTab] = useState('embedded') // embedded, local, spotify, youtube
+  const [activeTab, setActiveTab] = useState('embedded') // embedded, local
   const [localAudioUrl, setLocalAudioUrl] = useState(null)
   const [localAudioName, setLocalAudioName] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -26,29 +23,6 @@ export default function MusicPlayer({
 
   // Bepaal welke audio beschikbaar is
   const hasEmbeddedAudio = session?.audio?.url
-  const hasExternalMusic = externalMusic.length > 0
-  const spotifyTrack = externalMusic.find(m => m.spotifyUrl)
-  const youtubeTrack = externalMusic.find(m => m.youtubeUrl)
-
-  // Extract Spotify track ID
-  const getSpotifyEmbedUrl = (spotifyUrl) => {
-    if (!spotifyUrl) return null
-    const match = spotifyUrl.match(/track\/([a-zA-Z0-9]+)/)
-    if (match) {
-      return `https://open.spotify.com/embed/track/${match[1]}?utm_source=generator&theme=0`
-    }
-    return null
-  }
-
-  // Extract YouTube video ID
-  const getYouTubeEmbedUrl = (youtubeUrl) => {
-    if (!youtubeUrl) return null
-    const match = youtubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
-    if (match) {
-      return `https://www.youtube.com/embed/${match[1]}?autoplay=0&rel=0`
-    }
-    return null
-  }
 
   // Lokaal bestand selecteren
   const handleSelectLocalFile = async () => {
@@ -151,30 +125,6 @@ export default function MusicPlayer({
         >
           📁 Eigen MP3
         </button>
-        {spotifyTrack && (
-          <button
-            onClick={() => setActiveTab('spotify')}
-            className={`flex-1 px-3 py-2 text-xs font-medium transition ${
-              activeTab === 'spotify' 
-                ? 'bg-green-600 text-white' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-          >
-            🎧 Spotify
-          </button>
-        )}
-        {youtubeTrack && (
-          <button
-            onClick={() => setActiveTab('youtube')}
-            className={`flex-1 px-3 py-2 text-xs font-medium transition ${
-              activeTab === 'youtube' 
-                ? 'bg-red-600 text-white' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-          >
-            ▶️ YouTube
-          </button>
-        )}
       </div>
 
       {/* Content */}
@@ -292,66 +242,6 @@ export default function MusicPlayer({
           </div>
         )}
 
-        {/* Spotify Embed */}
-        {activeTab === 'spotify' && spotifyTrack && (
-          <div>
-            <div className="bg-amber-900/30 border border-amber-700/50 rounded-lg p-2 mb-3">
-              <p className="text-xs text-amber-400 flex items-center gap-1">
-                <span>⚡</span> Vereist internetverbinding
-              </p>
-            </div>
-            <iframe
-              src={getSpotifyEmbedUrl(spotifyTrack.spotifyUrl)}
-              width="100%"
-              height="152"
-              frameBorder="0"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-              className="rounded-lg"
-            />
-          </div>
-        )}
-
-        {/* YouTube - Open in browser (iframe werkt niet in Electron) */}
-        {activeTab === 'youtube' && youtubeTrack && (
-          <div>
-            <div className="bg-amber-900/30 border border-amber-700/50 rounded-lg p-2 mb-3">
-              <p className="text-xs text-amber-400 flex items-center gap-1">
-                <span>⚡</span> Vereist internetverbinding
-              </p>
-            </div>
-            
-            {/* YouTube info */}
-            <div className="bg-slate-900 rounded-lg p-4 text-center">
-              <div className="w-16 h-16 mx-auto mb-3 bg-red-600 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/>
-                </svg>
-              </div>
-              
-              <p className="text-white font-medium mb-1">{youtubeTrack.name || 'YouTube Video'}</p>
-              {youtubeTrack.artist && (
-                <p className="text-slate-400 text-sm mb-4">{youtubeTrack.artist}</p>
-              )}
-              
-              <a
-                href={youtubeTrack.youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M10 15l5.19-3L10 9v6z"/>
-                </svg>
-                Open in YouTube
-              </a>
-              
-              <p className="text-xs text-slate-500 mt-3">
-                Opent in je standaard browser
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
