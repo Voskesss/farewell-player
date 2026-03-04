@@ -159,9 +159,11 @@ export default function MusicPlayer({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white font-medium truncate">
                       {activeTab === 'local' ? localAudioName : (session?.audio?.file?.split('/').pop() || 'Audio')}
+                      {session?.loop && <span className="ml-2 text-xs text-amber-400">🔁</span>}
                     </p>
                     <p className="text-xs text-slate-400">
                       {formatTime(currentTime)} / {formatTime(duration)}
+                      {session?.loop && ' • herhalend'}
                     </p>
                   </div>
                 </div>
@@ -219,9 +221,17 @@ export default function MusicPlayer({
                 <audio
                   ref={audioRef}
                   src={currentAudioUrl}
+                  loop={session?.loop || false}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
-                  onEnded={() => setIsPlaying(false)}
+                  onEnded={() => {
+                    // Bij loop sessies herstart audio automatisch (via loop attribuut)
+                    // Bij normale sessies: stop
+                    if (!session?.loop) {
+                      setIsPlaying(false)
+                      onAudioStateChange?.(false)
+                    }
+                  }}
                 />
 
                 {/* Verander muziek knop voor local */}
