@@ -90,11 +90,19 @@ export default function Controller({
           break
         case 'Home':
           e.preventDefault()
-          goToSlide(0)
+          // Ga naar vorige sessie
+          if (currentSessionIndex > 0) {
+            const prevSession = sessionSlideRanges[currentSessionIndex - 1]
+            goToSlide(prevSession.start)
+          }
           break
         case 'End':
           e.preventDefault()
-          goToSlide(slides.length - 1)
+          // Ga naar volgende sessie
+          if (currentSessionIndex < sessionSlideRanges.length - 1) {
+            const nextSession = sessionSlideRanges[currentSessionIndex + 1]
+            goToSlide(nextSession.start)
+          }
           break
         case 'Escape':
           e.preventDefault()
@@ -307,9 +315,16 @@ export default function Controller({
           {/* Controls */}
           <div className="flex items-center justify-center gap-4 mt-4">
             <button
-              onClick={() => goToSlide(0)}
-              className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition"
-              title="Eerste slide (Home)"
+              onClick={() => {
+                // Ga naar vorige sessie
+                if (currentSessionIndex > 0) {
+                  const prevSession = sessionSlideRanges[currentSessionIndex - 1]
+                  goToSlide(prevSession.start)
+                }
+              }}
+              disabled={currentSessionIndex === 0}
+              className="p-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
+              title="Vorige sessie"
             >
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -359,9 +374,16 @@ export default function Controller({
             </button>
 
             <button
-              onClick={() => goToSlide(slides.length - 1)}
-              className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition"
-              title="Laatste slide (End)"
+              onClick={() => {
+                // Ga naar volgende sessie
+                if (currentSessionIndex < sessionSlideRanges.length - 1) {
+                  const nextSession = sessionSlideRanges[currentSessionIndex + 1]
+                  goToSlide(nextSession.start)
+                }
+              }}
+              disabled={currentSessionIndex === sessionSlideRanges.length - 1}
+              className="p-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
+              title="Volgende sessie"
             >
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -383,7 +405,7 @@ export default function Controller({
               const session = range.session
               const isCurrentSession = sessionIdx === currentSessionIndex
               const sessionSlides = slides.slice(range.start, range.end + 1)
-              const hasAudio = session.audio?.url || session.audio?.file
+              const hasAudio = session.audio?.url || session.audio?.file || session.audioTracks?.length > 0
               
               return (
                 <div 

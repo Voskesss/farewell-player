@@ -83,15 +83,27 @@ export async function loadFarewellFile(filePath) {
   }
   
   // Koppel audio URLs aan sessies (ondersteun meerdere tracks)
+  console.log('All loaded audio tracks:', audioTracks.map(t => t.path))
+  
   const sessionsWithAudio = (manifest.sessions || []).map(session => {
     let updatedSession = { ...session }
     
+    // Helper functie om audio te matchen
+    const findAudioTrack = (manifestFile) => {
+      if (!manifestFile) return null
+      const fileName = manifestFile.split('/').pop()
+      // Probeer exacte match of bestandsnaam match
+      return audioTracks.find(t => 
+        t.path === manifestFile || 
+        t.path === `audio/${fileName}` ||
+        t.path.endsWith(fileName)
+      )
+    }
+    
     // Koppel enkele audio track (backwards compatibility)
     if (session.audio?.file) {
-      const matchingTrack = audioTracks.find(t => 
-        t.path === session.audio.file || 
-        t.path.endsWith(session.audio.file.split('/').pop())
-      )
+      const matchingTrack = findAudioTrack(session.audio.file)
+      console.log('Single audio match:', session.audio.file, '->', matchingTrack?.path)
       if (matchingTrack) {
         updatedSession.audio = {
           ...session.audio,
@@ -102,16 +114,16 @@ export async function loadFarewellFile(filePath) {
     
     // Koppel meerdere audio tracks
     if (session.audioTracks?.length > 0) {
+      console.log('Session', session.id, 'audioTracks from manifest:', session.audioTracks.map(t => t.file))
       updatedSession.audioTracks = session.audioTracks.map(track => {
-        const matchingTrack = audioTracks.find(t => 
-          t.path === track.file || 
-          t.path.endsWith(track.file.split('/').pop())
-        )
+        const matchingTrack = findAudioTrack(track.file)
+        console.log('Multi audio match:', track.file, '->', matchingTrack?.path)
         return {
           ...track,
           url: matchingTrack?.url || null
         }
-      }).filter(t => t.url) // Filter tracks zonder URL
+      }).filter(t => t.url)
+      console.log('Matched audioTracks:', updatedSession.audioTracks.length)
     }
     
     return updatedSession

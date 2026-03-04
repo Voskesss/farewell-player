@@ -27,10 +27,13 @@ export default function MusicPlayer({
   // Haal alle embedded tracks op (meerdere tracks per sessie)
   const embeddedTracks = session?.audioTracks?.length > 0 
     ? session.audioTracks 
-    : (session?.audio?.url ? [session.audio] : [])
+    : (session?.audio?.url || session?.audio?.file ? [session.audio] : [])
   
-  const hasEmbeddedAudio = embeddedTracks.length > 0
+  const hasEmbeddedAudio = embeddedTracks.length > 0 && embeddedTracks.some(t => t?.url)
   const currentTrack = embeddedTracks[currentTrackIndex]
+  
+  // Debug logging
+  console.log('MusicPlayer session:', session?.id, 'audioTracks:', session?.audioTracks, 'audio:', session?.audio, 'embeddedTracks:', embeddedTracks)
 
   // Lokaal bestand selecteren
   const handleSelectLocalFile = async () => {
