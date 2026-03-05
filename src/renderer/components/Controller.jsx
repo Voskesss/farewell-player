@@ -239,27 +239,35 @@ export default function Controller({
           if (isLastSlideInSession) {
             // Check of we moeten loopen (loop mode OF muziek nog bezig)
             if (sessionHasLoop || audioStillPlaying) {
-              // Loop terug naar begin van deze sessie
+              // Loop terug naar begin van deze sessie - BLIJF in deze sessie
               console.log('[Controller] Looping back to start of session:', currentRange.start)
               next = currentRange.start
-            } else {
-              // Einde van sessie - check of er nog een volgende sessie is
-              const nextSessionIdx = currentSessionIndex + 1
-              const nextSession = sessionSlideRanges[nextSessionIdx]?.session
               
-              if (!nextSession) {
-                // Geen volgende sessie - stop
-                console.log('[Controller] End of presentation - stopping')
-                setIsPlaying(false)
-                return prev
+              // Sync met presentatie venster
+              if (window.electronAPI) {
+                window.electronAPI.sendToPresentation('goto', { index: next })
               }
-              
-              if (nextSession?.speakerMode) {
-                // Pauzeer bij start van speakerMode sessie
-                console.log('[Controller] Next session is speaker mode - pausing')
-                setIsPlaying(false)
-              }
+              return next
             }
+            
+            // Geen loop - ga naar volgende sessie of stop
+            const nextSessionIdx = currentSessionIndex + 1
+            const nextSession = sessionSlideRanges[nextSessionIdx]?.session
+            
+            if (!nextSession) {
+              // Geen volgende sessie - stop
+              console.log('[Controller] End of presentation - stopping')
+              setIsPlaying(false)
+              return prev
+            }
+            
+            if (nextSession?.speakerMode) {
+              // Pauzeer bij start van speakerMode sessie
+              console.log('[Controller] Next session is speaker mode - pausing')
+              setIsPlaying(false)
+            }
+            
+            // Ga naar volgende sessie (next is al prev + 1)
           }
           
           // Check of next valid is
