@@ -85,14 +85,14 @@ export default function Controller({
       // Check of we naar een nieuwe sessie gaan (niet binnen sessie navigeren)
       const isSessionSwitch = oldSessionIndex !== newSessionIndex
       
-      if (isSessionSwitch && isPlaying) {
+      if (isSessionSwitch) {
         const newSession = sessionSlideRanges[newSessionIndex]?.session
         const newSessionRange = sessionSlideRanges[newSessionIndex]
         
         // Check of eerste slide van nieuwe sessie pauseHere heeft
         const firstSlideIndex = newSessionRange?.start
         const firstSlide = slides[firstSlideIndex]
-        const shouldPause = firstSlide?.pauseHere === true
+        const pauseHere = firstSlide?.pauseHere
         
         // Pauzeer ook altijd bij speaker mode (geen audio)
         const hasAudio = newSession?.audio?.url || newSession?.audioTracks?.length > 0
@@ -101,14 +101,19 @@ export default function Controller({
         console.log('[Controller] Session switch:', {
           from: oldSessionIndex,
           to: newSessionIndex,
-          firstSlidePauseHere: shouldPause,
+          firstSlidePauseHere: pauseHere,
           speakerMode: isSpeakerMode,
           hasAudio
         })
         
-        if (shouldPause || isSpeakerMode) {
-          console.log('[Controller] Pausing at new session (pauseHere or speaker mode)')
+        // Pauzeer als pauseHere true is OF speaker mode
+        // Als pauseHere false is, blijf doorlopen (ook bij handmatige navigatie)
+        if (pauseHere === true || isSpeakerMode) {
+          console.log('[Controller] Pausing at new session (pauseHere=true or speaker mode)')
           setIsPlaying(false)
+        } else if (pauseHere === false && !isPlaying) {
+          console.log('[Controller] Auto-starting new session (pauseHere=false)')
+          setIsPlaying(true)
         }
       }
     }
