@@ -74,13 +74,20 @@ export default function Controller({
     return 0
   }, [sessionSlideRanges])
 
-  // Update sessie wanneer slide verandert
+  // Update sessie wanneer slide verandert EN pauzeer bij speaker mode
   useEffect(() => {
     const newSessionIndex = getCurrentSessionFromSlide(currentSlideIndex)
     if (newSessionIndex !== currentSessionIndex) {
       setCurrentSessionIndex(newSessionIndex)
+      
+      // Pauzeer automatisch bij speaker mode sessies
+      const newSession = sessionSlideRanges[newSessionIndex]?.session
+      if (newSession?.speakerMode && isPlaying) {
+        console.log('[Controller] Entered speaker mode session - pausing')
+        setIsPlaying(false)
+      }
     }
-  }, [currentSlideIndex, getCurrentSessionFromSlide, currentSessionIndex])
+  }, [currentSlideIndex, getCurrentSessionFromSlide, currentSessionIndex, sessionSlideRanges, isPlaying, setIsPlaying])
 
   // Elapsed time timer per sessie - update elke seconde wanneer playing
   useEffect(() => {
@@ -261,13 +268,8 @@ export default function Controller({
               return prev
             }
             
-            if (nextSession?.speakerMode) {
-              // Pauzeer bij start van speakerMode sessie
-              console.log('[Controller] Next session is speaker mode - pausing')
-              setIsPlaying(false)
-            }
-            
             // Ga naar volgende sessie (next is al prev + 1)
+            // NIET pauzeren - laat de sessie wissel gebeuren, dan pauzeert de sessie update useEffect indien nodig
           }
           
           // Check of next valid is
