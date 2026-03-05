@@ -151,6 +151,12 @@ export default function Controller({
   // Pauzeer timer als huidige slide een video is (video bepaalt eigen timing)
   // Pauzeer timer als sessie speakerMode heeft (handmatig doorklikken)
   useEffect(() => {
+    // Clear bestaande timer eerst (belangrijk voor correcte reset na video)
+    if (autoPlayTimerRef.current) {
+      clearTimeout(autoPlayTimerRef.current)
+      autoPlayTimerRef.current = null
+    }
+    
     // Skip timer voor video slides - video onEnded handler gaat naar volgende slide
     // Skip timer voor speakerMode sessies - handmatig doorklikken
     if (isPlaying && !currentSlideIsVideo && !currentSessionIsSpeakerMode) {
@@ -177,7 +183,23 @@ export default function Controller({
           }
           
           if (next >= slides.length) {
-            // Einde van presentatie
+            // Einde van presentatie - check of we moeten loopen
+            // Loop als: sessie heeft loop, of muziek nog speelt
+            const currentSession = currentRange?.session
+            const sessionAudio = audioTracks?.find(t => t.sessionIndex === currentSessionIndex)
+            const audioElement = audioRefs.current[currentSessionIndex]
+            const audioStillPlaying = audioElement && !audioElement.paused && !audioElement.ended
+            
+            if (sessionHasLoop || audioStillPlaying) {
+              // Loop terug naar begin van deze sessie
+              next = currentRange.start
+              if (window.electronAPI) {
+                window.electronAPI.sendToPresentation('goto', { index: next })
+              }
+              return next
+            }
+            
+            // Geen loop - stop presentatie
             setIsPlaying(false)
             return prev
           }
@@ -195,11 +217,7 @@ export default function Controller({
       autoPlayTimerRef.current = setTimeout(advanceSlide, duration)
     }
 
-    return () => {
-      if (autoPlayTimerRef.current) {
-        clearTimeout(autoPlayTimerRef.current)
-      }
-    }
+    // Cleanup is al gedaan aan begin van useEffect
   }, [isPlaying, currentSlideIndex, getCurrentSlideDuration, slides.length, currentSlideIsVideo, currentSessionIsSpeakerMode, sessionSlideRanges, currentSessionIndex])
 
   const goToSlide = useCallback((index) => {
