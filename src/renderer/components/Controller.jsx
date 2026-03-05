@@ -74,20 +74,44 @@ export default function Controller({
     return 0
   }, [sessionSlideRanges])
 
-  // Update sessie wanneer slide verandert EN pauzeer bij speaker mode
+  // Update sessie wanneer slide verandert EN check pauseHere op eerste slide
   useEffect(() => {
     const newSessionIndex = getCurrentSessionFromSlide(currentSlideIndex)
     if (newSessionIndex !== currentSessionIndex) {
+      const oldSessionIndex = currentSessionIndex
       setCurrentSessionIndex(newSessionIndex)
       
-      // Pauzeer automatisch bij speaker mode sessies
-      const newSession = sessionSlideRanges[newSessionIndex]?.session
-      if (newSession?.speakerMode && isPlaying) {
-        console.log('[Controller] Entered speaker mode session - pausing')
-        setIsPlaying(false)
+      // Check of we naar een nieuwe sessie gaan (niet binnen sessie navigeren)
+      const isSessionSwitch = oldSessionIndex !== newSessionIndex
+      
+      if (isSessionSwitch && isPlaying) {
+        const newSession = sessionSlideRanges[newSessionIndex]?.session
+        const newSessionRange = sessionSlideRanges[newSessionIndex]
+        
+        // Check of eerste slide van nieuwe sessie pauseHere heeft
+        const firstSlideIndex = newSessionRange?.start
+        const firstSlide = slides[firstSlideIndex]
+        const shouldPause = firstSlide?.pauseHere === true
+        
+        // Pauzeer ook altijd bij speaker mode (geen audio)
+        const hasAudio = newSession?.audio?.url || newSession?.audioTracks?.length > 0
+        const isSpeakerMode = newSession?.speakerMode || !hasAudio
+        
+        console.log('[Controller] Session switch:', {
+          from: oldSessionIndex,
+          to: newSessionIndex,
+          firstSlidePauseHere: shouldPause,
+          speakerMode: isSpeakerMode,
+          hasAudio
+        })
+        
+        if (shouldPause || isSpeakerMode) {
+          console.log('[Controller] Pausing at new session (pauseHere or speaker mode)')
+          setIsPlaying(false)
+        }
       }
     }
-  }, [currentSlideIndex, getCurrentSessionFromSlide, currentSessionIndex, sessionSlideRanges, isPlaying, setIsPlaying])
+  }, [currentSlideIndex, getCurrentSessionFromSlide, currentSessionIndex, sessionSlideRanges, isPlaying, setIsPlaying, slides])
 
   // Elapsed time timer per sessie - update elke seconde wanneer playing
   useEffect(() => {
