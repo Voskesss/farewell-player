@@ -407,9 +407,11 @@ export default function Controller({
       await window.electronAPI.openPresentationWindow(selectedDisplay)
       setPresentationWindowOpen(true)
       
-      // Stuur presentatie data naar nieuw venster
-      setTimeout(() => {
-        console.log('[Controller] Sending presentation data to window:', presentation?.name, 'slides:', presentation?.slides?.length)
+      // Stuur presentatie data naar nieuw venster met retry mechanisme
+      let retries = 0
+      const maxRetries = 5
+      const sendData = () => {
+        console.log('[Controller] Sending presentation data (attempt', retries + 1, '):', presentation?.name, 'slides:', presentation?.slides?.length)
         window.electronAPI.sendToPresentation('load', { presentation })
         window.electronAPI.sendToPresentation('goto', { index: currentSlideIndex })
         
@@ -417,7 +419,16 @@ export default function Controller({
         if (isPlaying) {
           window.electronAPI.sendToPresentation('play')
         }
-      }, 500)
+        
+        // Retry als window nog niet klaar is
+        retries++
+        if (retries < maxRetries) {
+          setTimeout(sendData, 300)
+        }
+      }
+      
+      // Start na korte delay
+      setTimeout(sendData, 200)
     }
   }
 
