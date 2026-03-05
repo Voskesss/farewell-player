@@ -14,7 +14,9 @@ export default function Controller({
   const [presentationWindowOpen, setPresentationWindowOpen] = useState(false)
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
   const [playingAudioSession, setPlayingAudioSession] = useState(null)
-  const [sessionElapsedTime, setSessionElapsedTime] = useState({}) // Elapsed time per sessie
+  const [sessionElapsedTime, setSessionElapsedTime] = useState({}) // Elapsed time per sessie in seconden
+  const [audioDurations, setAudioDurations] = useState({}) // Audio duur per sessie
+  const [audioEnded, setAudioEnded] = useState({}) // Track of audio klaar is per sessie
   const audioRefs = useRef({})
   const autoPlayTimerRef = useRef(null)
   const videoRef = useRef(null)
@@ -86,8 +88,13 @@ export default function Controller({
       const isSessionSwitch = oldSessionIndex !== newSessionIndex
       
       if (isSessionSwitch) {
+        const oldSession = sessionSlideRanges[oldSessionIndex]?.session
         const newSession = sessionSlideRanges[newSessionIndex]?.session
         const newSessionRange = sessionSlideRanges[newSessionIndex]
+        
+        // Check of vorige sessie een LOPENDE loop was
+        // isPlaying is true als de loop nog speelde toen we wisselden
+        const wasPlayingLoopSession = isPlaying && (oldSession?.loop || oldSession?.loopMode)
         
         // Check of eerste slide van nieuwe sessie pauseHere heeft
         const firstSlideIndex = newSessionRange?.start
@@ -101,32 +108,49 @@ export default function Controller({
         console.log('[Controller] Session switch:', {
           from: oldSessionIndex,
           to: newSessionIndex,
+          wasPlayingLoopSession,
+          isPlaying,
           firstSlidePauseHere: pauseHere,
           speakerMode: isSpeakerMode,
           hasAudio
         })
         
-        // Pauzeer als pauseHere true is OF speaker mode
-        // Als pauseHere false is, blijf doorlopen (ook bij handmatige navigatie)
-        if (pauseHere === true || isSpeakerMode) {
-          console.log('[Controller] Pausing at new session (pauseHere=true or speaker mode)')
+        // Logica:
+        // 1. Als we vanuit een LOPENDE loop komen → ALTIJD pauzeren
+        // 2. Anders: respecteer pauseHere
+        //    - pauseHere=true of speakerMode → pauzeer
+        //    - pauseHere=false → auto-start
+        //    - pauseHere=undefined → pauzeer (default)
+        if (wasPlayingLoopSession) {
+          console.log('[Controller] Pausing - came from playing loop session')
           setIsPlaying(false)
-        } else if (pauseHere === false && !isPlaying) {
-          console.log('[Controller] Auto-starting new session (pauseHere=false)')
+        } else if (pauseHere === true || isSpeakerMode) {
+          console.log('[Controller] Pausing - pauseHere=true or speaker mode')
+          setIsPlaying(false)
+        } else if (pauseHere === false) {
+          console.log('[Controller] Auto-starting - pauseHere=false')
           setIsPlaying(true)
+        } else {
+          // pauseHere undefined - default pauzeren
+          console.log('[Controller] Pausing - pauseHere not set (default)')
+          setIsPlaying(false)
         }
       }
     }
   }, [currentSlideIndex, getCurrentSessionFromSlide, currentSessionIndex, sessionSlideRanges, isPlaying, setIsPlaying, slides])
 
   // Elapsed time timer per sessie - update elke seconde wanneer playing
+  // + check of sessie moet stoppen
   useEffect(() => {
     if (isPlaying) {
       elapsedTimerRef.current = setInterval(() => {
-        setSessionElapsedTime(prev => ({
-          ...prev,
-          [currentSessionIndex]: (prev[currentSessionIndex] || 0) + 1
-        }))
+        setSessionElapsedTime(prev => {
+          const newElapsed = (prev[currentSessionIndex] || 0) + 1
+          return {
+            ...prev,
+            [currentSessionIndex]: newElapsed
+          }
+        })
       }, 1000)
     }
     
@@ -137,7 +161,7 @@ export default function Controller({
     }
   }, [isPlaying, currentSessionIndex])
 
-  // Reset elapsed time wanneer naar nieuwe sessie gaat
+  // Reset elapsed time en audioEnded wanneer naar nieuwe sessie gaat
   useEffect(() => {
     // Reset alleen als we naar een nieuwe sessie gaan die nog geen tijd heeft
     if (sessionElapsedTime[currentSessionIndex] === undefined) {
@@ -146,6 +170,11 @@ export default function Controller({
         [currentSessionIndex]: 0
       }))
     }
+    // Reset audioEnded voor nieuwe sessie
+    setAudioEnded(prev => ({
+      ...prev,
+      [currentSessionIndex]: false
+    }))
   }, [currentSessionIndex])
 
   // Haal beschikbare schermen op
@@ -205,12 +234,90 @@ export default function Controller({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [currentSlideIndex, slides.length])
 
-  // Haal slide duration voor huidige sessie
+  // Haal slide duration voor huidige sessie (in ms)
   const getCurrentSlideDuration = useCallback(() => {
     const currentRange = sessionSlideRanges[currentSessionIndex]
     const sessionDuration = currentRange?.session?.slideDuration
     return (sessionDuration || settings.defaultSlideDuration || 5) * 1000
   }, [currentSessionIndex, sessionSlideRanges, settings.defaultSlideDuration])
+
+  // CENTRALE LOGICA: Bereken totale sessie duur
+  // Prioriteit: handmatige duur > audio duur > (slides * slideDuration)
+  const getSessionTotalDuration = useCallback((sessionIdx) => {
+    const range = sessionSlideRanges[sessionIdx]
+    if (!range) return null
+    
+    const session = range.session
+    const slideCount = session.slides?.length || (range.end - range.start + 1)
+    const slideDurationSec = session.slideDuration || settings.defaultSlideDuration || 5
+    
+    // Check of er een handmatig ingestelde sessie duur is
+    // Dit is wanneer de gebruiker expliciet een duur heeft ingesteld
+    const manualDuration = session.manualDuration // in seconden
+    
+    // Audio duur (indien beschikbaar)
+    const audioDur = audioDurations[sessionIdx] || 0
+    
+    // Bereken slides-gebaseerde duur
+    const slideBasedDuration = slideCount * slideDurationSec
+    
+    // Loop sessies hebben geen vaste duur - ze stoppen bij spatie
+    if (session.loop || session.loopMode) {
+      return null // null = geen automatische stop
+    }
+    
+    // Spreker sessies hebben geen vaste duur - ze stoppen bij spatie
+    if (session.speakerMode) {
+      return null
+    }
+    
+    // Prioriteit: handmatige duur > audio duur > slides duur
+    if (manualDuration && manualDuration > 0) {
+      console.log(`[Controller] Session ${sessionIdx} using manual duration: ${manualDuration}s`)
+      return manualDuration
+    }
+    
+    if (audioDur > 0) {
+      console.log(`[Controller] Session ${sessionIdx} using audio duration: ${audioDur}s`)
+      return audioDur
+    }
+    
+    console.log(`[Controller] Session ${sessionIdx} using slide-based duration: ${slideBasedDuration}s`)
+    return slideBasedDuration
+  }, [sessionSlideRanges, settings.defaultSlideDuration, audioDurations])
+
+  // Check of huidige sessie moet stoppen
+  const shouldSessionStop = useCallback(() => {
+    const session = sessionSlideRanges[currentSessionIndex]?.session
+    if (!session) return false
+    
+    // Loop sessies stoppen niet automatisch
+    if (session.loop || session.loopMode) return false
+    
+    // Spreker sessies stoppen niet automatisch
+    if (session.speakerMode) return false
+    
+    const totalDuration = getSessionTotalDuration(currentSessionIndex)
+    const elapsed = sessionElapsedTime[currentSessionIndex] || 0
+    
+    // Check 1: Tijd verstreken (handmatige duur of audio duur)
+    if (totalDuration && elapsed >= totalDuration) {
+      console.log(`[Controller] Session ${currentSessionIndex} stopping: elapsed (${elapsed}s) >= duration (${totalDuration}s)`)
+      return true
+    }
+    
+    // Check 2: Audio is gestopt - ALLEEN stoppen als er GEEN handmatige duur is
+    // Als handmatige duur > audio duur, blijf slides loopen tot handmatige duur bereikt
+    const hasAudio = session.audio?.url || session.audioTracks?.length > 0
+    const hasManualDuration = session.manualDuration && session.manualDuration > 0
+    
+    if (hasAudio && audioEnded[currentSessionIndex] && !hasManualDuration) {
+      console.log(`[Controller] Session ${currentSessionIndex} stopping: audio ended (no manual duration)`)
+      return true
+    }
+    
+    return false
+  }, [currentSessionIndex, sessionSlideRanges, getSessionTotalDuration, sessionElapsedTime, audioEnded])
 
   // Check of huidige slide een video is
   const currentSlideIsVideo = slides[currentSlideIndex]?.isVideo
@@ -236,80 +343,66 @@ export default function Controller({
   // Check of huidige sessie speakerMode heeft (handmatig doorklikken)
   const currentSessionIsSpeakerMode = sessionSlideRanges[currentSessionIndex]?.session?.speakerMode
 
-  // Auto-play timer met sessie-specifieke duration en loop support
-  // Pauzeer timer als huidige slide een video is (video bepaalt eigen timing)
-  // Pauzeer timer als sessie speakerMode heeft (handmatig doorklikken)
+  // Refs voor loop check (om te voorkomen dat useEffect elke seconde reset)
+  const audioDurationsRef = useRef(audioDurations)
+  const sessionElapsedTimeRef = useRef(sessionElapsedTime)
+  
   useEffect(() => {
-    // Clear bestaande timer eerst (belangrijk voor correcte reset na video)
+    audioDurationsRef.current = audioDurations
+  }, [audioDurations])
+  
+  useEffect(() => {
+    sessionElapsedTimeRef.current = sessionElapsedTime
+  }, [sessionElapsedTime])
+
+  // SIMPELE SLIDE TIMER: Alleen voor slide wisseling binnen sessie
+  // Sessie stop logica zit nu in shouldSessionStop()
+  useEffect(() => {
     if (autoPlayTimerRef.current) {
       clearTimeout(autoPlayTimerRef.current)
       autoPlayTimerRef.current = null
     }
     
-    // Skip timer voor video slides - video onEnded handler gaat naar volgende slide
-    // Skip timer voor speakerMode sessies - handmatig doorklikken
+    // Skip voor video slides en speaker mode
     if (isPlaying && !currentSlideIsVideo && !currentSessionIsSpeakerMode) {
       const advanceSlide = () => {
         const currentRange = sessionSlideRanges[currentSessionIndex]
         const isLastSlideInSession = currentSlideIndex === currentRange?.end
         const session = currentRange?.session
         const sessionHasLoop = session?.loop || session?.loopMode
+        
+        // Check of audio nog speelt (voor loop beslissing)
         const audioElement = audioRefs.current[currentSessionIndex]
         const audioStillPlaying = audioElement && !audioElement.paused && !audioElement.ended
-        
-        console.log('[Controller] advanceSlide:', {
-          currentSlide: currentSlideIndex,
-          sessionEnd: currentRange?.end,
-          lastInSession: isLastSlideInSession,
-          sessionLoop: session?.loop,
-          sessionLoopMode: session?.loopMode,
-          hasLoop: sessionHasLoop,
-          audioElement: !!audioElement,
-          audioPlaying: audioStillPlaying,
-          audioRefs: Object.keys(audioRefs.current)
-        })
         
         setCurrentSlideIndex(prev => {
           let next = prev + 1
           
-          // Check of we aan het einde van de sessie zijn
           if (isLastSlideInSession) {
-            // Check of we moeten loopen (loop mode OF muziek nog bezig)
-            if (sessionHasLoop || audioStillPlaying) {
-              // Loop terug naar begin van deze sessie - BLIJF in deze sessie
-              console.log('[Controller] Looping back to start of session:', currentRange.start)
+            // Check of handmatige duur langer is dan audio - dan ook loopen
+            // Gebruik refs om te voorkomen dat timer elke seconde reset
+            const manualDur = session?.manualDuration || 0
+            const elapsed = sessionElapsedTimeRef.current[currentSessionIndex] || 0
+            const shouldLoopForManualDuration = manualDur > 0 && elapsed < manualDur
+            
+            // Loop terug als: loop mode OF audio nog speelt OF handmatige duur nog niet bereikt
+            if (sessionHasLoop || audioStillPlaying || shouldLoopForManualDuration) {
+              console.log('[Controller] Looping to session start:', currentRange.start, 
+                '(loop:', sessionHasLoop, 'audio:', audioStillPlaying, 'manualDur:', shouldLoopForManualDuration, ')')
               next = currentRange.start
-              
-              // Sync met presentatie venster
-              if (window.electronAPI) {
-                window.electronAPI.sendToPresentation('goto', { index: next })
-              }
-              return next
-            }
-            
-            // Geen loop - ga naar volgende sessie of stop
-            const nextSessionIdx = currentSessionIndex + 1
-            const nextSession = sessionSlideRanges[nextSessionIdx]?.session
-            
-            if (!nextSession) {
-              // Geen volgende sessie - stop
-              console.log('[Controller] End of presentation - stopping')
-              setIsPlaying(false)
+            } else {
+              // Niet loopen - shouldSessionStop() handelt sessie wissel af
+              // Blijf op laatste slide, elapsed timer triggert sessie wissel
+              console.log('[Controller] Last slide, waiting for session end')
               return prev
             }
-            
-            // Ga naar volgende sessie (next is al prev + 1)
-            // NIET pauzeren - laat de sessie wissel gebeuren, dan pauzeert de sessie update useEffect indien nodig
           }
           
-          // Check of next valid is
           if (next >= slides.length) {
-            console.log('[Controller] next >= slides.length, stopping')
             setIsPlaying(false)
             return prev
           }
           
-          // Sync met presentatie venster
           if (window.electronAPI) {
             window.electronAPI.sendToPresentation('goto', { index: next })
           }
@@ -317,13 +410,9 @@ export default function Controller({
         })
       }
       
-      // Gebruik huidige sessie duration
       const duration = getCurrentSlideDuration()
-      console.log('[Controller] Setting timer for', duration, 'ms')
       autoPlayTimerRef.current = setTimeout(advanceSlide, duration)
     }
-
-    // Cleanup is al gedaan aan begin van useEffect
   }, [isPlaying, currentSlideIndex, getCurrentSlideDuration, slides.length, currentSlideIsVideo, currentSessionIsSpeakerMode, sessionSlideRanges, currentSessionIndex])
 
   const goToSlide = useCallback((index) => {
@@ -335,6 +424,25 @@ export default function Controller({
       window.electronAPI.sendToPresentation('goto', { index: clampedIndex })
     }
   }, [slides.length, setCurrentSlideIndex])
+
+  // Check elke seconde of sessie moet stoppen en naar volgende gaan
+  useEffect(() => {
+    if (!isPlaying) return
+    
+    if (shouldSessionStop()) {
+      // Ga naar volgende sessie
+      const nextSessionIdx = currentSessionIndex + 1
+      if (nextSessionIdx < sessionSlideRanges.length) {
+        const nextRange = sessionSlideRanges[nextSessionIdx]
+        console.log(`[Controller] Auto-advancing to session ${nextSessionIdx}`)
+        goToSlide(nextRange.start)
+      } else {
+        // Einde presentatie
+        console.log('[Controller] End of presentation')
+        setIsPlaying(false)
+      }
+    }
+  }, [isPlaying, sessionElapsedTime, shouldSessionStop, currentSessionIndex, sessionSlideRanges, goToSlide])
 
   // Handler voor wanneer video eindigt - check loop logica
   const handleVideoEnded = useCallback(() => {
@@ -672,14 +780,18 @@ export default function Controller({
                             {session.speakerMode && <span className="ml-2 text-xs bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded">🎤 Spreker</span>}
                           </span>
                           <span className="text-xs text-slate-500">
-                            {sessionSlides.length} slides • {session.slideDuration || settings.defaultSlideDuration || 5}s
+                            {sessionSlides.length} slides • {session.slideDuration || settings.defaultSlideDuration || 5}s/slide
                             {session.speakerNotes && ' • 📝'}
                           </span>
-                          {/* Elapsed time voor actieve sessie */}
+                          {/* Elapsed time + totale duur voor actieve sessie */}
                           {isCurrentSession && (
-                            <span className="text-xs font-mono text-primary-400">
+                            <span className="text-xs font-mono text-primary-400 block tabular-nums" style={{ minWidth: '120px' }}>
                               ⏱ {formatTime(sessionElapsedTime[sessionIdx] || 0)}
-                              {session.loop || session.loopMode ? ' (loop)' : ''}
+                              {getSessionTotalDuration(sessionIdx) 
+                                ? ` / ${formatTime(getSessionTotalDuration(sessionIdx))}` 
+                                : ''}
+                              {session.loop || session.loopMode ? ' 🔁' : ''}
+                              {audioDurations[sessionIdx] ? ` 🎵${formatTime(audioDurations[sessionIdx])}` : ''}
                             </span>
                           )}
                         </div>
@@ -705,6 +817,12 @@ export default function Controller({
                         isCurrentSession={isCurrentSession}
                         shouldAutoPlay={false}
                         isPlaying={isPlaying}
+                        // Loop audio als handmatige duur > audio duur
+                        shouldLoopAudio={
+                          session.manualDuration > 0 && 
+                          audioDurations[sessionIdx] > 0 && 
+                          session.manualDuration > audioDurations[sessionIdx]
+                        }
                         onAudioRefChange={(ref) => {
                           audioRefs.current[sessionIdx] = ref
                         }}
@@ -714,6 +832,22 @@ export default function Controller({
                           } else {
                             setPlayingAudioSession(null)
                           }
+                        }}
+                        onAudioDuration={(dur) => {
+                          // Sla audio duur op voor sessie timing
+                          console.log(`[Controller] Audio duration for session ${sessionIdx}:`, dur)
+                          setAudioDurations(prev => ({
+                            ...prev,
+                            [sessionIdx]: dur
+                          }))
+                        }}
+                        onAudioEnded={() => {
+                          // Audio is klaar - markeer voor sessie stop check
+                          console.log(`[Controller] Audio ended for session ${sessionIdx}`)
+                          setAudioEnded(prev => ({
+                            ...prev,
+                            [sessionIdx]: true
+                          }))
                         }}
                       />
                     </div>

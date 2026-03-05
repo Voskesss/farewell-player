@@ -15,7 +15,10 @@ export default function MusicPlayer({
   isCurrentSession,
   onAudioStateChange,
   isPlaying: externalIsPlaying = false,  // Playing state van Controller
-  onAudioRefChange  // Callback om audio element ref door te geven aan controller
+  onAudioRefChange,  // Callback om audio element ref door te geven aan controller
+  onAudioDuration,   // Callback wanneer audio duur bekend is
+  onAudioEnded,      // Callback wanneer audio klaar is
+  shouldLoopAudio = false  // True als handmatige duur > audio duur
 }) {
   const [activeTab, setActiveTab] = useState('embedded') // embedded, local
   const [localAudioUrl, setLocalAudioUrl] = useState(null)
@@ -82,7 +85,13 @@ export default function MusicPlayer({
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
-      setDuration(audioRef.current.duration)
+      const dur = audioRef.current.duration
+      setDuration(dur)
+      // Geef duur door aan Controller voor sessie timing
+      if (onAudioDuration && dur > 0) {
+        console.log('[MusicPlayer] Audio duration:', dur)
+        onAudioDuration(dur)
+      }
     }
   }
 
@@ -225,7 +234,7 @@ export default function MusicPlayer({
                 {/* Track info */}
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    isPlaying ? 'bg-primary-500' : 'bg-slate-700'
+                    internalIsPlaying ? 'bg-primary-500' : 'bg-slate-700'
                   }`}>
                     <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
@@ -238,7 +247,7 @@ export default function MusicPlayer({
                         : (currentTrack?.name || currentTrack?.file?.split('/').pop() || 'Audio')}
                       {session?.loop && <span className="ml-2 text-xs text-amber-400">🔁</span>}
                     </p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 tabular-nums">
                       {formatTime(currentTime)} / {formatTime(duration)}
                       {embeddedTracks.length > 1 && activeTab === 'embedded' && (
                         <span> • Track {currentTrackIndex + 1}/{embeddedTracks.length}</span>
@@ -304,6 +313,9 @@ export default function MusicPlayer({
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
                   onEnded={() => {
+                    // Bepaal of we moeten loopen: sessie loop OF handmatige duur langer dan audio
+                    const shouldLoop = session?.loop || shouldLoopAudio
+                    
                     // Bij meerdere tracks: ga naar volgende
                     if (activeTab === 'embedded' && embeddedTracks.length > 1) {
                       if (currentTrackIndex < embeddedTracks.length - 1) {
@@ -315,8 +327,9 @@ export default function MusicPlayer({
                           }
                         }, 100)
                         return
-                      } else if (session?.loop) {
+                      } else if (shouldLoop) {
                         // Loop: terug naar eerste track
+                        console.log('[MusicPlayer] Looping back to first track (shouldLoop:', shouldLoop, ')')
                         setCurrentTrackIndex(0)
                         setTimeout(() => {
                           if (audioRef.current) {
@@ -327,16 +340,19 @@ export default function MusicPlayer({
                       }
                     }
                     // Enkele track met loop
-                    if (session?.loop && embeddedTracks.length === 1) {
+                    if (shouldLoop && embeddedTracks.length === 1) {
+                      console.log('[MusicPlayer] Looping single track (shouldLoop:', shouldLoop, ')')
                       if (audioRef.current) {
                         audioRef.current.currentTime = 0
                         audioRef.current.play()
                       }
                       return
                     }
-                    // Geen loop: stop
-                    setIsPlaying(false)
+                    // Geen loop: audio is klaar - meld aan Controller
+                    console.log('[MusicPlayer] Audio ended - notifying controller')
+                    setInternalIsPlaying(false)
                     onAudioStateChange?.(false)
+                    onAudioEnded?.()  // Trigger sessie stop check
                   }}
                 />
 
