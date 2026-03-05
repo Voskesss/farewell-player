@@ -27,8 +27,10 @@ export default function Presentation({
   useEffect(() => {
     const currentSlide = presentation?.slides[displayedSlideIndex]
     if (videoRef.current && currentSlide?.isVideo) {
-      // Reset video naar begin en speel af
-      videoRef.current.currentTime = 0
+      // Reset video naar starttijd (trim) en speel af
+      videoRef.current.currentTime = currentSlide.videoStart || 0
+      videoRef.current.volume = (currentSlide.videoVolume ?? 100) / 100
+      videoRef.current.muted = currentSlide.videoMuted ?? true
       videoRef.current.play().catch(err => {
         console.warn('Video autoplay geblokkeerd:', err)
       })
@@ -50,6 +52,16 @@ export default function Presentation({
   const handleVideoEnded = () => {
     if (onVideoEnded) {
       onVideoEnded()
+    }
+  }
+
+  // Video time update handler - stop bij eindtijd (trim)
+  const handleVideoTimeUpdate = (e) => {
+    const currentSlide = presentation?.slides[displayedSlideIndex]
+    if (currentSlide?.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
+      e.target.pause()
+      // Trigger video ended
+      handleVideoEnded()
     }
   }
 
@@ -76,8 +88,9 @@ export default function Presentation({
             transition: `opacity ${transitionDuration / 2}ms ease-in-out`
           }}
           autoPlay
-          muted={false}
+          muted={currentSlide.videoMuted ?? true}
           onEnded={handleVideoEnded}
+          onTimeUpdate={handleVideoTimeUpdate}
         />
       ) : (
         <img

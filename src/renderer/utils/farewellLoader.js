@@ -29,6 +29,18 @@ export async function loadFarewellFile(filePath) {
   const slides = []
   const slidesFolder = zip.folder('slides')
   
+  // Bouw een map van slide info uit manifest sessies (voor video trim settings)
+  const slideInfoMap = {}
+  let slideIdx = 0
+  for (const session of (manifest.sessions || [])) {
+    for (const slideInfo of (session.slides || [])) {
+      // slideInfo kan een string zijn (oude format) of object (nieuwe format met video settings)
+      const fileName = typeof slideInfo === 'string' ? slideInfo : slideInfo.file
+      slideInfoMap[fileName] = typeof slideInfo === 'object' ? slideInfo : { file: fileName }
+      slideIdx++
+    }
+  }
+  
   if (slidesFolder) {
     const slideFiles = []
     slidesFolder.forEach((relativePath, file) => {
@@ -45,11 +57,20 @@ export async function loadFarewellFile(filePath) {
       const url = URL.createObjectURL(blob)
       const isVideo = /\.(mp4|webm|mov)$/i.test(path)
       
+      // Haal video trim settings uit manifest
+      const info = slideInfoMap[path] || {}
+      
       slides.push({
         path,
         url,
         isVideo,
-        type: isVideo ? 'video' : 'image'
+        type: isVideo ? 'video' : 'image',
+        // Video trim settings
+        videoStart: info.videoStart || 0,
+        videoEnd: info.videoEnd || null,
+        videoMuted: info.videoMuted ?? true,
+        videoVolume: info.videoVolume ?? 100,
+        musicDucking: info.musicDucking || false
       })
     }
   }

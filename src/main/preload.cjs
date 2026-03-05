@@ -24,5 +24,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Verwijder listener
   removePresentationCommandListener: () => {
     ipcRenderer.removeAllListeners('presentation-command')
+  },
+  
+  // Stuur commando's van presentatie naar controller
+  sendToController: (command, data) => ipcRenderer.invoke('send-to-controller', command, data),
+  
+  // Ontvang commando's van presentatie (voor controller venster)
+  onControllerCommand: (callback) => {
+    ipcRenderer.on('controller-command', (event, data) => callback(data))
+  },
+  
+  // Verwijder controller listener
+  removeControllerCommandListener: () => {
+    ipcRenderer.removeAllListeners('controller-command')
   }
 })

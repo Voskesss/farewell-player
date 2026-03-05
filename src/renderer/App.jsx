@@ -70,6 +70,13 @@ export default function App() {
     }
   }
 
+  // Handler voor video ended in presentatie modus - stuur naar controller
+  const handleVideoEnded = () => {
+    if (window.electronAPI) {
+      window.electronAPI.sendToController('videoEnded')
+    }
+  }
+
   // Presentatie modus - toon alleen de slide
   if (isPresentationMode) {
     return (
@@ -77,6 +84,7 @@ export default function App() {
         presentation={presentation}
         currentSlideIndex={currentSlideIndex}
         isPlaying={isPlaying}
+        onVideoEnded={handleVideoEnded}
       />
     )
   }

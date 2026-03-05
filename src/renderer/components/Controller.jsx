@@ -205,6 +205,24 @@ export default function Controller({
     }
   }, [isPlaying, currentSlideIndex, slides.length, goToSlide, setIsPlaying])
 
+  // Luister naar commando's van presentatie venster (bijv. video ended)
+  useEffect(() => {
+    if (!window.electronAPI) return
+
+    window.electronAPI.onControllerCommand(({ command, data }) => {
+      switch (command) {
+        case 'videoEnded':
+          // Video is klaar in presentatie venster - ga naar volgende slide
+          handleVideoEnded()
+          break
+      }
+    })
+
+    return () => {
+      window.electronAPI?.removeControllerCommandListener()
+    }
+  }, [handleVideoEnded])
+
   const openPresentationWindow = async () => {
     if (window.electronAPI) {
       await window.electronAPI.openPresentationWindow(selectedDisplay)
@@ -293,7 +311,22 @@ export default function Controller({
                   src={currentSlide.url}
                   className="max-w-full max-h-full object-contain"
                   controls
+                  muted={currentSlide.videoMuted ?? true}
                   onEnded={handleVideoEnded}
+                  onLoadedMetadata={(e) => {
+                    // Zet starttijd bij laden
+                    if (currentSlide.videoStart > 0) {
+                      e.target.currentTime = currentSlide.videoStart
+                    }
+                    e.target.volume = (currentSlide.videoVolume ?? 100) / 100
+                  }}
+                  onTimeUpdate={(e) => {
+                    // Stop bij eindtijd
+                    if (currentSlide.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
+                      e.target.pause()
+                      handleVideoEnded()
+                    }
+                  }}
                 />
                 {/* Video indicator */}
                 <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">

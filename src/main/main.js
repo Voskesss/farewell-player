@@ -186,6 +186,15 @@ ipcMain.handle('send-to-presentation', async (event, command, data) => {
   return false
 })
 
+// Stuur commando van presentatie naar controller venster
+ipcMain.handle('send-to-controller', async (event, command, data) => {
+  if (controllerWindow) {
+    controllerWindow.webContents.send('controller-command', { command, data })
+    return true
+  }
+  return false
+})
+
 // Haal beschikbare schermen op
 ipcMain.handle('get-displays', async () => {
   const displays = screen.getAllDisplays()
