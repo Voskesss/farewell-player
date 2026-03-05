@@ -331,7 +331,7 @@ export default function Controller({
     }
   }, [slides.length, setCurrentSlideIndex])
 
-  // Handler voor wanneer video eindigt - ga naar volgende slide (met debounce)
+  // Handler voor wanneer video eindigt - check loop logica
   const handleVideoEnded = useCallback(() => {
     // Debounce - voorkom dubbele triggers binnen 500ms
     const now = Date.now()
@@ -341,16 +341,40 @@ export default function Controller({
     }
     videoEndedDebounceRef.current = now
     
-    console.log('[Controller] Video ended - advancing to next slide')
-    if (isPlaying) {
-      const next = currentSlideIndex + 1
-      if (next < slides.length) {
-        goToSlide(next)
-      } else {
-        setIsPlaying(false)
-      }
+    if (!isPlaying) return
+    
+    const currentRange = sessionSlideRanges[currentSessionIndex]
+    const isLastSlideInSession = currentSlideIndex === currentRange?.end
+    const session = currentRange?.session
+    const sessionHasLoop = session?.loop || session?.loopMode
+    const audioElement = audioRefs.current[currentSessionIndex]
+    const audioStillPlaying = audioElement && !audioElement.paused && !audioElement.ended
+    
+    console.log('[Controller] Video ended:', {
+      currentSlide: currentSlideIndex,
+      isLastInSession: isLastSlideInSession,
+      sessionHasLoop,
+      audioStillPlaying
+    })
+    
+    // Als laatste slide in sessie EN sessie heeft loop OF audio speelt nog
+    if (isLastSlideInSession && (sessionHasLoop || audioStillPlaying)) {
+      // Loop terug naar begin van sessie
+      console.log('[Controller] Video ended - looping back to session start:', currentRange.start)
+      goToSlide(currentRange.start)
+      return
     }
-  }, [isPlaying, currentSlideIndex, slides.length, goToSlide, setIsPlaying])
+    
+    // Anders: ga naar volgende slide
+    const next = currentSlideIndex + 1
+    if (next < slides.length) {
+      console.log('[Controller] Video ended - advancing to next slide')
+      goToSlide(next)
+    } else {
+      console.log('[Controller] Video ended - end of presentation')
+      setIsPlaying(false)
+    }
+  }, [isPlaying, currentSlideIndex, slides.length, goToSlide, setIsPlaying, sessionSlideRanges, currentSessionIndex, audioRefs])
 
   // Luister naar commando's van presentatie venster (bijv. video ended)
   useEffect(() => {

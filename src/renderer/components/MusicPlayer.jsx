@@ -138,6 +138,16 @@ export default function MusicPlayer({
     setCurrentTime(0)
   }, [session?.id])
 
+  // Stop muziek wanneer sessie niet meer actief is
+  useEffect(() => {
+    if (!isCurrentSession && audioRef.current && isPlaying) {
+      console.log('[MusicPlayer] Stopping audio - session no longer active:', session?.id)
+      audioRef.current.pause()
+      setIsPlaying(false)
+      onAudioStateChange?.(false)
+    }
+  }, [isCurrentSession, session?.id])
+
   // Auto-play wanneer shouldAutoPlay true wordt
   useEffect(() => {
     if (shouldAutoPlay && audioRef.current && currentAudioUrl && !isPlaying) {
