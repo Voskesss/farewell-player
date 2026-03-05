@@ -703,7 +703,8 @@ export default function Controller({
                         session={session}
                         audioTracks={audioTracks}
                         isCurrentSession={isCurrentSession}
-                        shouldAutoPlay={isPlaying && isCurrentSession}
+                        shouldAutoPlay={false}
+                        isPlaying={isPlaying}
                         onAudioRefChange={(ref) => {
                           audioRefs.current[sessionIdx] = ref
                         }}

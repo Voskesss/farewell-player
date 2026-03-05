@@ -14,13 +14,13 @@ export default function MusicPlayer({
   audioTracks = [],
   isCurrentSession,
   onAudioStateChange,
-  shouldAutoPlay = false,  // Start automatisch wanneer sessie begint
+  isPlaying: externalIsPlaying = false,  // Playing state van Controller
   onAudioRefChange  // Callback om audio element ref door te geven aan controller
 }) {
   const [activeTab, setActiveTab] = useState('embedded') // embedded, local
   const [localAudioUrl, setLocalAudioUrl] = useState(null)
   const [localAudioName, setLocalAudioName] = useState(null)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [internalIsPlaying, setInternalIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
@@ -64,13 +64,13 @@ export default function MusicPlayer({
   // Audio controls
   const togglePlay = () => {
     if (audioRef.current) {
-      if (isPlaying) {
+      if (internalIsPlaying) {
         audioRef.current.pause()
       } else {
         audioRef.current.play()
       }
-      setIsPlaying(!isPlaying)
-      onAudioStateChange?.(!isPlaying)
+      setInternalIsPlaying(!internalIsPlaying)
+      onAudioStateChange?.(!internalIsPlaying)
     }
   }
 
@@ -113,14 +113,13 @@ export default function MusicPlayer({
   const currentAudioUrl = activeTab === 'local' ? localAudioUrl : currentTrack?.url
 
   // Ga naar volgende track
-  const goToNextTrack = () => {
+  const handleEnded = () => {
     if (currentTrackIndex < embeddedTracks.length - 1) {
       setCurrentTrackIndex(currentTrackIndex + 1)
       setCurrentTime(0)
-    } else if (session?.loop) {
-      // Loop: ga terug naar eerste track
-      setCurrentTrackIndex(0)
-      setCurrentTime(0)
+    } else {
+      setInternalIsPlaying(false)
+      onAudioStateChange?.(false)
     }
   }
 
@@ -140,26 +139,33 @@ export default function MusicPlayer({
 
   // Stop muziek wanneer sessie niet meer actief is
   useEffect(() => {
-    if (!isCurrentSession && audioRef.current && isPlaying) {
+    if (!isCurrentSession && audioRef.current && internalIsPlaying) {
       console.log('[MusicPlayer] Stopping audio - session no longer active:', session?.id)
       audioRef.current.pause()
-      setIsPlaying(false)
+      setInternalIsPlaying(false)
       onAudioStateChange?.(false)
     }
-  }, [isCurrentSession, session?.id])
+  }, [isCurrentSession, session?.id, internalIsPlaying, onAudioStateChange])
 
-  // Auto-play wanneer shouldAutoPlay true wordt
+  // Sync externe isPlaying state met audio element
   useEffect(() => {
-    if (shouldAutoPlay && audioRef.current && currentAudioUrl && !isPlaying) {
-      console.log('[MusicPlayer] Auto-starting audio for session:', session?.id)
+    if (!audioRef.current || !currentAudioUrl) return
+    
+    if (externalIsPlaying && !internalIsPlaying) {
+      console.log('[MusicPlayer] Starting audio (external play):', session?.id)
       audioRef.current.play().then(() => {
-        setIsPlaying(true)
+        setInternalIsPlaying(true)
         onAudioStateChange?.(true)
       }).catch(err => {
-        console.warn('[MusicPlayer] Auto-play blocked:', err)
+        console.warn('[MusicPlayer] Play blocked:', err)
       })
+    } else if (!externalIsPlaying && internalIsPlaying) {
+      console.log('[MusicPlayer] Pausing audio (external pause):', session?.id)
+      audioRef.current.pause()
+      setInternalIsPlaying(false)
+      onAudioStateChange?.(false)
     }
-  }, [shouldAutoPlay, currentAudioUrl])
+  }, [externalIsPlaying, internalIsPlaying, currentAudioUrl, session?.id, onAudioStateChange])
 
   // Geef audio ref door aan controller via callback
   useEffect(() => {
@@ -267,10 +273,10 @@ export default function MusicPlayer({
                   <button
                     onClick={togglePlay}
                     className={`p-4 rounded-full transition ${
-                      isPlaying ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary-500 hover:bg-primary-600'
+                      internalIsPlaying ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary-500 hover:bg-primary-600'
                     }`}
                   >
-                    {isPlaying ? (
+                    {internalIsPlaying ? (
                       <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                       </svg>
