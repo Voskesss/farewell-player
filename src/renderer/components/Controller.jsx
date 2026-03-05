@@ -16,6 +16,7 @@ export default function Controller({
   const [playingAudioSession, setPlayingAudioSession] = useState(null)
   const audioRefs = useRef({})
   const autoPlayTimerRef = useRef(null)
+  const videoRef = useRef(null)
 
   const { slides, audioTracks, settings, name, externalMusic, sessions } = presentation
 
@@ -124,6 +125,24 @@ export default function Controller({
 
   // Check of huidige slide een video is
   const currentSlideIsVideo = slides[currentSlideIndex]?.isVideo
+
+  // Auto-play video wanneer isPlaying true is en huidige slide een video is
+  useEffect(() => {
+    if (videoRef.current && currentSlideIsVideo) {
+      if (isPlaying) {
+        const currentSlide = slides[currentSlideIndex]
+        // Reset naar starttijd als nodig
+        if (currentSlide.videoStart > 0) {
+          videoRef.current.currentTime = currentSlide.videoStart
+        }
+        videoRef.current.play().catch(err => {
+          console.warn('[Controller] Video autoplay geblokkeerd:', err)
+        })
+      } else {
+        videoRef.current.pause()
+      }
+    }
+  }, [isPlaying, currentSlideIndex, currentSlideIsVideo, slides])
 
   // Check of huidige sessie speakerMode heeft (handmatig doorklikken)
   const currentSessionIsSpeakerMode = sessionSlideRanges[currentSessionIndex]?.session?.speakerMode
@@ -310,11 +329,15 @@ export default function Controller({
             {currentSlide?.isVideo ? (
               <>
                 <video
+                  ref={videoRef}
                   src={currentSlide.url}
                   className="max-w-full max-h-full object-contain"
                   controls
                   muted={currentSlide.videoMuted ?? true}
-                  onEnded={handleVideoEnded}
+                  onEnded={() => {
+                    console.log('[Controller] Video onEnded triggered')
+                    handleVideoEnded()
+                  }}
                   onLoadedMetadata={(e) => {
                     // Zet starttijd bij laden
                     if (currentSlide.videoStart > 0) {
@@ -326,6 +349,7 @@ export default function Controller({
                     // Stop bij eindtijd
                     if (currentSlide.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
                       e.target.pause()
+                      console.log('[Controller] Video reached end time, triggering handleVideoEnded')
                       handleVideoEnded()
                     }
                   }}
