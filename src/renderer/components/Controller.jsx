@@ -14,11 +14,34 @@ export default function Controller({
   const [presentationWindowOpen, setPresentationWindowOpen] = useState(false)
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
   const [playingAudioSession, setPlayingAudioSession] = useState(null)
+  const [sessionElapsedTime, setSessionElapsedTime] = useState({}) // Elapsed time per sessie
   const audioRefs = useRef({})
   const autoPlayTimerRef = useRef(null)
   const videoRef = useRef(null)
+  const elapsedTimerRef = useRef(null)
 
   const { slides, audioTracks, settings, name, externalMusic, sessions } = presentation
+
+  // Helper: format tijd als mm:ss
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Debug: log sessie data bij laden
+  useEffect(() => {
+    console.log('[Controller] Sessions loaded:', sessions?.map(s => ({
+      id: s.id,
+      name: s.name,
+      loop: s.loop,
+      loopMode: s.loopMode,
+      speakerMode: s.speakerMode,
+      slideDuration: s.slideDuration,
+      slidesCount: s.slides?.length,
+      audioTracks: s.audioTracks?.length || 0
+    })))
+  }, [sessions])
 
   // Bereken slide ranges per sessie
   const sessionSlideRanges = useMemo(() => {
@@ -58,6 +81,35 @@ export default function Controller({
       setCurrentSessionIndex(newSessionIndex)
     }
   }, [currentSlideIndex, getCurrentSessionFromSlide, currentSessionIndex])
+
+  // Elapsed time timer per sessie - update elke seconde wanneer playing
+  useEffect(() => {
+    if (isPlaying) {
+      elapsedTimerRef.current = setInterval(() => {
+        setSessionElapsedTime(prev => ({
+          ...prev,
+          [currentSessionIndex]: (prev[currentSessionIndex] || 0) + 1
+        }))
+      }, 1000)
+    }
+    
+    return () => {
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current)
+      }
+    }
+  }, [isPlaying, currentSessionIndex])
+
+  // Reset elapsed time wanneer naar nieuwe sessie gaat
+  useEffect(() => {
+    // Reset alleen als we naar een nieuwe sessie gaan die nog geen tijd heeft
+    if (sessionElapsedTime[currentSessionIndex] === undefined) {
+      setSessionElapsedTime(prev => ({
+        ...prev,
+        [currentSessionIndex]: 0
+      }))
+    }
+  }, [currentSessionIndex])
 
   // Haal beschikbare schermen op
   useEffect(() => {
@@ -163,11 +215,22 @@ export default function Controller({
       const advanceSlide = () => {
         const currentRange = sessionSlideRanges[currentSessionIndex]
         const isLastSlideInSession = currentSlideIndex === currentRange?.end
-        const sessionHasLoop = currentRange?.session?.loop
+        const session = currentRange?.session
+        const sessionHasLoop = session?.loop || session?.loopMode
         const audioElement = audioRefs.current[currentSessionIndex]
         const audioStillPlaying = audioElement && !audioElement.paused && !audioElement.ended
         
-        console.log('[Controller] advanceSlide - currentSlide:', currentSlideIndex, 'lastInSession:', isLastSlideInSession, 'hasLoop:', sessionHasLoop, 'audioPlaying:', audioStillPlaying)
+        console.log('[Controller] advanceSlide:', {
+          currentSlide: currentSlideIndex,
+          sessionEnd: currentRange?.end,
+          lastInSession: isLastSlideInSession,
+          sessionLoop: session?.loop,
+          sessionLoopMode: session?.loopMode,
+          hasLoop: sessionHasLoop,
+          audioElement: !!audioElement,
+          audioPlaying: audioStillPlaying,
+          audioRefs: Object.keys(audioRefs.current)
+        })
         
         setCurrentSlideIndex(prev => {
           let next = prev + 1
@@ -518,6 +581,13 @@ export default function Controller({
                             {sessionSlides.length} slides • {session.slideDuration || settings.defaultSlideDuration || 5}s
                             {session.speakerNotes && ' • 📝'}
                           </span>
+                          {/* Elapsed time voor actieve sessie */}
+                          {isCurrentSession && (
+                            <span className="text-xs font-mono text-primary-400">
+                              ⏱ {formatTime(sessionElapsedTime[sessionIdx] || 0)}
+                              {session.loop || session.loopMode ? ' (loop)' : ''}
+                            </span>
+                          )}
                         </div>
                       </div>
                       {/* Expand indicator */}
