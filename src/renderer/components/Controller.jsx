@@ -19,6 +19,7 @@ export default function Controller({
   const autoPlayTimerRef = useRef(null)
   const videoRef = useRef(null)
   const elapsedTimerRef = useRef(null)
+  const videoEndedDebounceRef = useRef(null)
 
   const { slides, audioTracks, settings, name, externalMusic, sessions } = presentation
 
@@ -330,8 +331,17 @@ export default function Controller({
     }
   }, [slides.length, setCurrentSlideIndex])
 
-  // Handler voor wanneer video eindigt - ga naar volgende slide
+  // Handler voor wanneer video eindigt - ga naar volgende slide (met debounce)
   const handleVideoEnded = useCallback(() => {
+    // Debounce - voorkom dubbele triggers binnen 500ms
+    const now = Date.now()
+    if (videoEndedDebounceRef.current && now - videoEndedDebounceRef.current < 500) {
+      console.log('[Controller] Video ended debounced - ignoring duplicate')
+      return
+    }
+    videoEndedDebounceRef.current = now
+    
+    console.log('[Controller] Video ended - advancing to next slide')
     if (isPlaying) {
       const next = currentSlideIndex + 1
       if (next < slides.length) {
