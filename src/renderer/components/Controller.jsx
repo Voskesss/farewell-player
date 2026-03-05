@@ -340,13 +340,20 @@ export default function Controller({
 
   const openPresentationWindow = async () => {
     if (window.electronAPI) {
+      console.log('[Controller] Opening presentation window on display:', selectedDisplay)
       await window.electronAPI.openPresentationWindow(selectedDisplay)
       setPresentationWindowOpen(true)
       
       // Stuur presentatie data naar nieuw venster
       setTimeout(() => {
+        console.log('[Controller] Sending presentation data to window:', presentation?.name, 'slides:', presentation?.slides?.length)
         window.electronAPI.sendToPresentation('load', { presentation })
         window.electronAPI.sendToPresentation('goto', { index: currentSlideIndex })
+        
+        // Sync playing state
+        if (isPlaying) {
+          window.electronAPI.sendToPresentation('play')
+        }
       }, 500)
     }
   }
@@ -359,13 +366,16 @@ export default function Controller({
     }
   }
 
-  const togglePlay = () => {
-    const newState = !isPlaying
-    setIsPlaying(newState)
-    
-    if (window.electronAPI) {
-      window.electronAPI.sendToPresentation(newState ? 'play' : 'pause', {})
+  // Sync playing state naar presentation window
+  useEffect(() => {
+    if (presentationWindowOpen && window.electronAPI) {
+      console.log('[Controller] Syncing playing state to presentation:', isPlaying)
+      window.electronAPI.sendToPresentation(isPlaying ? 'play' : 'pause', {})
     }
+  }, [isPlaying, presentationWindowOpen])
+
+  const togglePlay = () => {
+    setIsPlaying(!isPlaying)
   }
 
   const currentSlide = slides[currentSlideIndex]

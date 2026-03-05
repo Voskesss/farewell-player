@@ -24,13 +24,18 @@ export default function App() {
   useEffect(() => {
     if (!isPresentationMode || !window.electronAPI) return
 
+    console.log('[Presentation Window] Listening for commands...')
+
     window.electronAPI.onPresentationCommand(({ command, data }) => {
+      console.log('[Presentation Window] Received command:', command, data)
       switch (command) {
         case 'load':
+          console.log('[Presentation Window] Loading presentation:', data.presentation?.name, 'slides:', data.presentation?.slides?.length)
           setPresentation(data.presentation)
           setCurrentSlideIndex(0)
           break
         case 'goto':
+          console.log('[Presentation Window] Going to slide:', data.index)
           setCurrentSlideIndex(data.index)
           break
         case 'next':
@@ -40,9 +45,11 @@ export default function App() {
           setCurrentSlideIndex(prev => Math.max(prev - 1, 0))
           break
         case 'play':
+          console.log('[Presentation Window] Playing')
           setIsPlaying(true)
           break
         case 'pause':
+          console.log('[Presentation Window] Pausing')
           setIsPlaying(false)
           break
       }
