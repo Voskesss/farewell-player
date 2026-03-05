@@ -109,16 +109,22 @@ export async function loadFarewellFile(filePath) {
   const sessionsWithAudio = (manifest.sessions || []).map(session => {
     let updatedSession = { ...session }
     
-    // Helper functie om audio te matchen
+    // Helper functie om audio te matchen (flexibel met extensies)
     const findAudioTrack = (manifestFile) => {
       if (!manifestFile) return null
       const fileName = manifestFile.split('/').pop()
-      // Probeer exacte match of bestandsnaam match
-      return audioTracks.find(t => 
-        t.path === manifestFile || 
-        t.path === `audio/${fileName}` ||
-        t.path.endsWith(fileName)
-      )
+      const fileNameWithoutExt = fileName.replace(/\.(mp3|wav|m4a|ogg)$/i, '')
+      
+      // Probeer exacte match, bestandsnaam match, of match zonder extensie
+      return audioTracks.find(t => {
+        const trackFileName = t.path.split('/').pop()
+        const trackNameWithoutExt = trackFileName.replace(/\.(mp3|wav|m4a|ogg)$/i, '')
+        
+        return t.path === manifestFile || 
+          t.path === `audio/${fileName}` ||
+          t.path.endsWith(fileName) ||
+          trackNameWithoutExt === fileNameWithoutExt
+      })
     }
     
     // Koppel enkele audio track (backwards compatibility)
