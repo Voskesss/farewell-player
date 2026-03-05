@@ -13,7 +13,9 @@ export default function MusicPlayer({
   session, 
   audioTracks = [],
   isCurrentSession,
-  onAudioStateChange
+  onAudioStateChange,
+  shouldAutoPlay = false,  // Start automatisch wanneer sessie begint
+  onAudioRefChange  // Callback om audio element ref door te geven aan controller
 }) {
   const [activeTab, setActiveTab] = useState('embedded') // embedded, local
   const [localAudioUrl, setLocalAudioUrl] = useState(null)
@@ -135,6 +137,26 @@ export default function MusicPlayer({
     setCurrentTrackIndex(0)
     setCurrentTime(0)
   }, [session?.id])
+
+  // Auto-play wanneer shouldAutoPlay true wordt
+  useEffect(() => {
+    if (shouldAutoPlay && audioRef.current && currentAudioUrl && !isPlaying) {
+      console.log('[MusicPlayer] Auto-starting audio for session:', session?.id)
+      audioRef.current.play().then(() => {
+        setIsPlaying(true)
+        onAudioStateChange?.(true)
+      }).catch(err => {
+        console.warn('[MusicPlayer] Auto-play blocked:', err)
+      })
+    }
+  }, [shouldAutoPlay, currentAudioUrl])
+
+  // Geef audio ref door aan controller via callback
+  useEffect(() => {
+    if (onAudioRefChange && audioRef.current) {
+      onAudioRefChange(audioRef.current)
+    }
+  }, [onAudioRefChange, audioRef.current])
 
   return (
     <div className={`rounded-lg overflow-hidden ${isCurrentSession ? 'bg-slate-800' : 'bg-slate-800/50'}`}>

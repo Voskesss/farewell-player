@@ -164,42 +164,44 @@ export default function Controller({
         const currentRange = sessionSlideRanges[currentSessionIndex]
         const isLastSlideInSession = currentSlideIndex === currentRange?.end
         const sessionHasLoop = currentRange?.session?.loop
+        const audioElement = audioRefs.current[currentSessionIndex]
+        const audioStillPlaying = audioElement && !audioElement.paused && !audioElement.ended
+        
+        console.log('[Controller] advanceSlide - currentSlide:', currentSlideIndex, 'lastInSession:', isLastSlideInSession, 'hasLoop:', sessionHasLoop, 'audioPlaying:', audioStillPlaying)
         
         setCurrentSlideIndex(prev => {
           let next = prev + 1
           
           // Check of we aan het einde van de sessie zijn
-          if (isLastSlideInSession && sessionHasLoop) {
-            // Loop terug naar begin van deze sessie
-            next = currentRange.start
-          } else if (isLastSlideInSession) {
-            // Einde van sessie - check of volgende sessie speakerMode heeft
-            const nextSessionIdx = currentSessionIndex + 1
-            const nextSession = sessionSlideRanges[nextSessionIdx]?.session
-            if (nextSession?.speakerMode) {
-              // Pauzeer bij start van speakerMode sessie
-              setIsPlaying(false)
+          if (isLastSlideInSession) {
+            // Check of we moeten loopen (loop mode OF muziek nog bezig)
+            if (sessionHasLoop || audioStillPlaying) {
+              // Loop terug naar begin van deze sessie
+              console.log('[Controller] Looping back to start of session:', currentRange.start)
+              next = currentRange.start
+            } else {
+              // Einde van sessie - check of er nog een volgende sessie is
+              const nextSessionIdx = currentSessionIndex + 1
+              const nextSession = sessionSlideRanges[nextSessionIdx]?.session
+              
+              if (!nextSession) {
+                // Geen volgende sessie - stop
+                console.log('[Controller] End of presentation - stopping')
+                setIsPlaying(false)
+                return prev
+              }
+              
+              if (nextSession?.speakerMode) {
+                // Pauzeer bij start van speakerMode sessie
+                console.log('[Controller] Next session is speaker mode - pausing')
+                setIsPlaying(false)
+              }
             }
           }
           
+          // Check of next valid is
           if (next >= slides.length) {
-            // Einde van presentatie - check of we moeten loopen
-            // Loop als: sessie heeft loop, of muziek nog speelt
-            const currentSession = currentRange?.session
-            const sessionAudio = audioTracks?.find(t => t.sessionIndex === currentSessionIndex)
-            const audioElement = audioRefs.current[currentSessionIndex]
-            const audioStillPlaying = audioElement && !audioElement.paused && !audioElement.ended
-            
-            if (sessionHasLoop || audioStillPlaying) {
-              // Loop terug naar begin van deze sessie
-              next = currentRange.start
-              if (window.electronAPI) {
-                window.electronAPI.sendToPresentation('goto', { index: next })
-              }
-              return next
-            }
-            
-            // Geen loop - stop presentatie
+            console.log('[Controller] next >= slides.length, stopping')
             setIsPlaying(false)
             return prev
           }
@@ -214,6 +216,7 @@ export default function Controller({
       
       // Gebruik huidige sessie duration
       const duration = getCurrentSlideDuration()
+      console.log('[Controller] Setting timer for', duration, 'ms')
       autoPlayTimerRef.current = setTimeout(advanceSlide, duration)
     }
 
@@ -536,6 +539,10 @@ export default function Controller({
                         session={session}
                         audioTracks={audioTracks}
                         isCurrentSession={isCurrentSession}
+                        shouldAutoPlay={isPlaying && isCurrentSession}
+                        onAudioRefChange={(ref) => {
+                          audioRefs.current[sessionIdx] = ref
+                        }}
                         onAudioStateChange={(playing) => {
                           if (playing) {
                             setPlayingAudioSession(sessionIdx)
