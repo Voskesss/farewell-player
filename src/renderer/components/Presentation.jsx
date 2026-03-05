@@ -50,6 +50,7 @@ export default function Presentation({
 
   // Video ended handler
   const handleVideoEnded = () => {
+    console.log('[Presentation] Video ended, calling onVideoEnded')
     if (onVideoEnded) {
       onVideoEnded()
     }

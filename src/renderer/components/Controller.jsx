@@ -210,9 +210,11 @@ export default function Controller({
     if (!window.electronAPI) return
 
     window.electronAPI.onControllerCommand(({ command, data }) => {
+      console.log('[Controller] Received command from presentation:', command)
       switch (command) {
         case 'videoEnded':
           // Video is klaar in presentatie venster - ga naar volgende slide
+          console.log('[Controller] Video ended, advancing to next slide')
           handleVideoEnded()
           break
       }

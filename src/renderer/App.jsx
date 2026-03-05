@@ -72,6 +72,7 @@ export default function App() {
 
   // Handler voor video ended in presentatie modus - stuur naar controller
   const handleVideoEnded = () => {
+    console.log('[App] handleVideoEnded called, sending to controller')
     if (window.electronAPI) {
       window.electronAPI.sendToController('videoEnded')
     }
