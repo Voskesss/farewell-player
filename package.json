@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "canvas": "^3.2.1",
+    "electron-updater": "^6.1.7",
     "jszip": "^3.10.1"
   },
   "devDependencies": {
@@ -44,10 +45,17 @@
       "src/main/**/*",
       "dist-renderer/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "thelastfarewell",
+      "repo": "farewell-player"
+    },
     "mac": {
       "category": "public.app-category.utilities",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "target": [
         "dmg",
         "zip"
@@ -56,12 +64,17 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "publisherName": "The Last Farewell"
     },
     "linux": {
       "target": [
         "AppImage"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }

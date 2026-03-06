@@ -2,9 +2,14 @@ import { app, BrowserWindow, ipcMain, dialog, powerSaveBlocker, screen } from 'e
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import { getLogger } from './logger.js'
+import { initAutoUpdater, quitAndInstall } from './updater.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+// Logger instance
+let logger = null
 
 // Houd referenties naar windows om garbage collection te voorkomen
 let controllerWindow = null
@@ -209,9 +214,40 @@ ipcMain.handle('get-displays', async () => {
   }))
 })
 
+// Log error van renderer
+ipcMain.handle('log-error', async (event, errorData) => {
+  if (logger) {
+    logger.logRendererError(errorData)
+  }
+  return true
+})
+
+// Haal log bestand pad op
+ipcMain.handle('get-log-path', async () => {
+  if (logger) {
+    return logger.getLogFilePath()
+  }
+  return null
+})
+
+// Installeer update en herstart
+ipcMain.handle('install-update', async () => {
+  quitAndInstall()
+  return true
+})
+
 // App lifecycle
 app.whenReady().then(() => {
+  // Initialiseer logger
+  logger = getLogger()
+  logger.logAppEvent('App started', { version: app.getVersion() })
+  
   createControllerWindow()
+  
+  // Initialiseer auto-updater (alleen in productie)
+  if (app.isPackaged) {
+    initAutoUpdater(controllerWindow)
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -221,6 +257,9 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  if (logger) {
+    logger.logAppEvent('All windows closed')
+  }
   if (process.platform !== 'darwin') {
     app.quit()
   }

@@ -37,5 +37,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Verwijder controller listener
   removeControllerCommandListener: () => {
     ipcRenderer.removeAllListeners('controller-command')
-  }
+  },
+  
+  // Logging
+  logError: (errorData) => ipcRenderer.invoke('log-error', errorData),
+  getLogPath: () => ipcRenderer.invoke('get-log-path'),
+  
+  // Auto-updates
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on('update-available', (event, info) => callback(info))
+  },
+  onUpdateProgress: (callback) => {
+    ipcRenderer.on('update-progress', (event, progress) => callback(progress))
+  },
+  onUpdateDownloaded: (callback) => {
+    ipcRenderer.on('update-downloaded', (event, info) => callback(info))
+  },
+  installUpdate: () => ipcRenderer.invoke('install-update')
 })

@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import Controller from './components/Controller'
 import Presentation from './components/Presentation'
 import DropZone from './components/DropZone'
+import ErrorBoundary from './components/ErrorBoundary'
+import UpdateNotification from './components/UpdateNotification'
 import { loadFarewellFile } from './utils/farewellLoader'
 
-export default function App() {
+function AppContent() {
   const [presentation, setPresentation] = useState(null)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -111,5 +113,15 @@ export default function App() {
       setIsPlaying={setIsPlaying}
       onClose={() => setPresentation(null)}
     />
+  )
+}
+
+// Wrap de hele app in ErrorBoundary voor crash-proof UI
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+      <UpdateNotification />
+    </ErrorBoundary>
   )
 }
