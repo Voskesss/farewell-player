@@ -45,9 +45,10 @@
       "src/main/**/*",
       "dist-renderer/**/*"
     ],
+    "icon": "build/icons/icon.png",
     "publish": {
       "provider": "github",
-      "owner": "thelastfarewell",
+      "owner": "Voskesss",
       "repo": "farewell-player"
     },
     "mac": {
