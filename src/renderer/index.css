@@ -58,3 +58,42 @@ body {
   height: 100%;
   object-fit: cover;
 }
+
+/* ===== SLIDE TRANSITIONS ===== */
+
+/* Fade: klassieke opacity fade */
+@keyframes farewell-fade-anim {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.farewell-fade {
+  animation: farewell-fade-anim 0.6s ease-out forwards;
+}
+
+/* Wipe: schuift van rechts over vorige heen + transparantie */
+@keyframes farewell-wipe-anim {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.farewell-wipe {
+  animation: farewell-wipe-anim 0.8s ease-out forwards;
+}
+
+/* Zoom: zoomt zacht in terwijl hij infadet */
+@keyframes farewell-zoom-anim {
+  from { transform: scale(1.12); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.farewell-zoom {
+  animation: farewell-zoom-anim 1s ease-out forwards;
+}
+
+/* Fade via zwart: eerst kort zwart, dan fade in */
+@keyframes farewell-fade-black-anim {
+  0% { opacity: 0; }
+  40% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.farewell-fade-black {
+  animation: farewell-fade-black-anim 1s ease-out forwards;
+}

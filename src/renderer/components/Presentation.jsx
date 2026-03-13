@@ -1,4 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+
+// Bepaal welke sessie bij een globale slide index hoort (voor per-sessie transition)
+function getSessionForSlideIndex(presentation, globalIndex) {
+  if (!presentation?.sessions?.length) return null
+  let count = 0
+  for (const session of presentation.sessions) {
+    const n = session.slides?.length || 0
+    if (globalIndex < count + n) return session
+    count += n
+  }
+  return presentation.sessions[0] || null
+}
 
 export default function Presentation({
   presentation,
@@ -8,20 +20,54 @@ export default function Presentation({
 }) {
   const [displayedSlideIndex, setDisplayedSlideIndex] = useState(currentSlideIndex)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [prevSlideIndex, setPrevSlideIndex] = useState(null)
   const videoRef = useRef(null)
 
-  // Sync met controller
+  // Bepaal transition type: per sessie of globaal
+  const transitionType = useMemo(() => {
+    const session = getSessionForSlideIndex(presentation, currentSlideIndex)
+    return session?.transition || presentation?.settings?.transition || 'fade'
+  }, [presentation, currentSlideIndex])
+
+  const transitionDuration = presentation?.settings?.transitionDuration || 1000
+  const halfDuration = transitionType === 'none' ? 0 : transitionDuration / 2
+
+  const getTransitionClass = () => {
+    switch (transitionType) {
+      case 'wipe':
+        return 'farewell-wipe'
+      case 'zoom':
+        return 'farewell-zoom'
+      case 'fadeBlack':
+        return 'farewell-fade-black'
+      case 'fade':
+        return 'farewell-fade'
+      default:
+        return ''
+    }
+  }
+
+  // Sync met controller: pas transition toe op basis van type
   useEffect(() => {
     if (currentSlideIndex !== displayedSlideIndex) {
-      setIsTransitioning(true)
-      
-      // Fade out, dan switch, dan fade in
-      setTimeout(() => {
+      if (transitionType === 'none') {
+        // Direct wisselen
+        setPrevSlideIndex(null)
         setDisplayedSlideIndex(currentSlideIndex)
         setIsTransitioning(false)
-      }, 500) // Half van transition duration
+      } else {
+        // Animatie: bewaar vorige slide voor wipe/zoom
+        setPrevSlideIndex(displayedSlideIndex)
+        setIsTransitioning(true)
+
+        setTimeout(() => {
+          setDisplayedSlideIndex(currentSlideIndex)
+          setIsTransitioning(false)
+          setPrevSlideIndex(null)
+        }, halfDuration)
+      }
     }
-  }, [currentSlideIndex, displayedSlideIndex])
+  }, [currentSlideIndex, displayedSlideIndex, transitionType, halfDuration])
 
   // Auto-play video's wanneer slide verandert
   useEffect(() => {
@@ -75,19 +121,29 @@ export default function Presentation({
   }
 
   const currentSlide = presentation.slides[displayedSlideIndex]
-  const transitionDuration = presentation.settings?.transitionDuration || 1000
+  const prevSlide = prevSlideIndex != null ? presentation.slides[prevSlideIndex] : null
 
   return (
     <div className="presentation-slide bg-black w-screen h-screen overflow-hidden">
+      {/* Onderlaag: vorige slide (voor wipe/zoom effect) */}
+      {(transitionType === 'wipe' || transitionType === 'zoom') && prevSlide && (
+        <img
+          src={prevSlide.url}
+          alt=""
+          className="w-full h-full object-cover"
+          style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Huidige slide met animatie */}
       {currentSlide?.isVideo ? (
         <video
+          key={displayedSlideIndex}
           ref={videoRef}
           src={currentSlide.url}
-          className="w-full h-full object-cover"
-          style={{
-            opacity: isTransitioning ? 0 : 1,
-            transition: `opacity ${transitionDuration / 2}ms ease-in-out`
-          }}
+          className={`w-full h-full object-cover ${getTransitionClass()}`}
+          style={{ position: 'absolute', inset: 0, zIndex: 1 }}
           autoPlay
           muted={currentSlide.videoMuted ?? true}
           onEnded={handleVideoEnded}
@@ -95,13 +151,11 @@ export default function Presentation({
         />
       ) : (
         <img
+          key={displayedSlideIndex}
           src={currentSlide?.url}
           alt=""
-          className="w-full h-full object-cover"
-          style={{
-            opacity: isTransitioning ? 0 : 1,
-            transition: `opacity ${transitionDuration / 2}ms ease-in-out`
-          }}
+          className={`w-full h-full object-cover ${getTransitionClass()}`}
+          style={{ position: 'absolute', inset: 0, zIndex: 1 }}
         />
       )}
     </div>
