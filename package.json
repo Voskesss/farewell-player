@@ -1,6 +1,6 @@
 {
   "name": "farewell-player",
-  "version": "1.0.0",
+  "version": "1.2.1",
   "description": "Offline presentatie speler voor uitvaartpresentaties",
   "type": "module",
   "main": "src/main/main.js",
@@ -57,6 +57,9 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": {
+        "teamId": "G3N6YWNG5R"
+      },
       "target": [
         {
           "target": "dmg",
