@@ -1,7 +1,14 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 export default function DropZone({ onFileLoad }) {
   const [isDragging, setIsDragging] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
+
+  useEffect(() => {
+    if (window.electronAPI?.getAppVersion) {
+      window.electronAPI.getAppVersion().then(setAppVersion)
+    }
+  }, [])
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault()
@@ -82,7 +89,7 @@ export default function DropZone({ onFileLoad }) {
 
       <div className="mt-8 text-center">
         <p className="text-slate-500 text-sm">
-          Versie 1.0.0 • The Last Farewell
+          Versie {appVersion || '...'} • The Last Farewell
         </p>
       </div>
     </div>

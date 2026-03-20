@@ -830,8 +830,8 @@ export default function Controller({
 
         {/* Sidebar - Sessie gebaseerd */}
         <div className="w-96 bg-slate-800 border-l border-slate-700 flex flex-col overflow-hidden">
-          {/* Sessies lijst */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Sessies lijst - will-change voor GPU acceleration */}
+          <div className="flex-1 overflow-y-auto" style={{ willChange: 'contents' }}>
             {sessionSlideRanges.map((range, sessionIdx) => {
               const session = range.session
               const isCurrentSession = sessionIdx === currentSessionIndex
@@ -841,7 +841,8 @@ export default function Controller({
               
               return (
                 <div 
-                  key={sessionIdx}
+                  key={`session-${sessionIdx}`}
+                  style={{ contain: 'layout style' }}
                   className={`border-b border-slate-700 ${isCurrentSession ? colors.bg : ''}`}
                 >
                   {/* Sessie header */}

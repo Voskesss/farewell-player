@@ -236,6 +236,11 @@ ipcMain.handle('install-update', async () => {
   return true
 })
 
+// Haal app versie op
+ipcMain.handle('get-app-version', async () => {
+  return app.getVersion()
+})
+
 // App lifecycle
 app.whenReady().then(() => {
   // Initialiseer logger

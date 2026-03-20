@@ -1,15 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <defs>
-    <linearGradient id="heartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#8BA4B8;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#6B8BA3;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  <!-- Background circle -->
-  <circle cx="512" cy="512" r="480" fill="#1e293b"/>
-  <!-- Heart shape - matching The Last Farewell blue -->
+  <!-- Background circle - slightly lighter navy blue -->
+  <circle cx="512" cy="512" r="480" fill="#2a3f54"/>
+  <!-- Heart shape - larger, The Last Farewell slate blue -->
   <path 
-    d="M512 820c-12 0-24-4-34-12C358 712 200 580 200 420c0-100 80-180 180-180 60 0 110 30 132 70 22-40 72-70 132-70 100 0 180 80 180 180 0 160-158 292-278 388-10 8-22 12-34 12z"
-    fill="url(#heartGradient)"
+    d="M512 800c-10 0-20-4-28-10-100-78-238-198-238-347 0-89 71-160 160-160 54 0 100 26 116 62 16-36 62-62 116-62 89 0 160 71 160 160 0 149-138 269-238 347-8 6-18 10-28 10z"
+    fill="#7B9AB8"
   />
 </svg>

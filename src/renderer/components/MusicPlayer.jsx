@@ -140,6 +140,17 @@ export default function MusicPlayer({
     }
   }
 
+  // Ga naar volgende track
+  const goToNextTrack = () => {
+    if (currentTrackIndex < embeddedTracks.length - 1) {
+      setCurrentTrackIndex(currentTrackIndex + 1)
+      setCurrentTime(0)
+    } else if (session?.loop) {
+      setCurrentTrackIndex(0)
+      setCurrentTime(0)
+    }
+  }
+
   // Reset track index wanneer sessie verandert
   useEffect(() => {
     setCurrentTrackIndex(0)
