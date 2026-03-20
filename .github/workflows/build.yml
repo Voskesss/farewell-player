@@ -8,6 +8,8 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -28,25 +30,11 @@ jobs:
       - name: Build Windows
         run: npx electron-builder --win --publish never
 
-      - name: Upload Windows EXE
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: dist/*.exe
-
-      - name: Upload Windows yml
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-yml
-          path: dist/latest.yml
-
-      - name: Create Release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             dist/*.exe
             dist/latest.yml
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
