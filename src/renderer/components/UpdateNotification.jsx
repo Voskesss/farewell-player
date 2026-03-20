@@ -10,6 +10,7 @@ export default function UpdateNotification() {
   const [updateReady, setUpdateReady] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -19,10 +20,12 @@ export default function UpdateNotification() {
       console.log('[UpdateNotification] Update available:', info.version)
       setUpdateInfo(info)
       setIsDownloading(true)
+      setError(null)
     })
 
     window.electronAPI.onUpdateProgress((progress) => {
-      setDownloadProgress(Math.round(progress.percent))
+      console.log('[UpdateNotification] Progress:', progress.percent)
+      setDownloadProgress(progress.percent || 0)
     })
 
     window.electronAPI.onUpdateDownloaded((info) => {
@@ -31,6 +34,15 @@ export default function UpdateNotification() {
       setIsDownloading(false)
       setDownloadProgress(null)
     })
+
+    // Error handling
+    if (window.electronAPI.onUpdateError) {
+      window.electronAPI.onUpdateError((err) => {
+        console.error('[UpdateNotification] Error:', err)
+        setError(err.message)
+        setIsDownloading(false)
+      })
+    }
   }, [])
 
   const handleInstall = (e) => {
@@ -80,7 +92,19 @@ export default function UpdateNotification() {
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  {downloadProgress ? `Downloaden... ${downloadProgress}%` : 'Downloaden...'}
+                  {downloadProgress > 0 ? `Downloaden... ${downloadProgress}%` : 'Start download...'}
+                </p>
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div className="mt-2">
+                <p className="text-xs text-red-400">
+                  Fout: {error}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Herstart de app om opnieuw te proberen
                 </p>
               </div>
             )}

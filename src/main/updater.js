@@ -8,9 +8,21 @@ import { getLogger } from './logger.js'
  */
 
 let logger = null
+let mainWindowRef = null
+
+function sendToRenderer(channel, data) {
+  try {
+    if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+      mainWindowRef.webContents.send(channel, data)
+    }
+  } catch (err) {
+    if (logger) logger.warn('Failed to send to renderer', { channel, error: err.message })
+  }
+}
 
 export function initAutoUpdater(mainWindow) {
   logger = getLogger()
+  mainWindowRef = mainWindow
   
   // Configuratie
   autoUpdater.autoDownload = true
@@ -23,11 +35,7 @@ export function initAutoUpdater(mainWindow) {
   
   autoUpdater.on('update-available', (info) => {
     logger.info('Update available', { version: info.version })
-    
-    // Notify renderer
-    if (mainWindow) {
-      mainWindow.webContents.send('update-available', info)
-    }
+    sendToRenderer('update-available', info)
   })
   
   autoUpdater.on('update-not-available', (info) => {
@@ -35,40 +43,30 @@ export function initAutoUpdater(mainWindow) {
   })
   
   autoUpdater.on('download-progress', (progress) => {
-    logger.info('Download progress', { 
-      percent: Math.round(progress.percent),
-      transferred: progress.transferred,
-      total: progress.total
-    })
-    
-    // Notify renderer
-    if (mainWindow) {
-      mainWindow.webContents.send('update-progress', progress)
-    }
+    const percent = Math.round(progress.percent)
+    logger.info('Download progress', { percent })
+    sendToRenderer('update-progress', { ...progress, percent })
   })
   
   autoUpdater.on('update-downloaded', (info) => {
     logger.info('Update downloaded', { version: info.version })
-    
-    // Notify renderer - user can choose to restart
-    if (mainWindow) {
-      mainWindow.webContents.send('update-downloaded', info)
-    }
+    sendToRenderer('update-downloaded', info)
   })
   
   autoUpdater.on('error', (error) => {
     logger.error('Auto-updater error', { message: error.message, stack: error.stack })
+    sendToRenderer('update-error', { message: error.message })
   })
   
-  // Check for updates (silent, don't bother user during presentation)
-  // Only check once at startup
+  // Check for updates after startup
   setTimeout(() => {
+    logger.info('Starting update check...')
     autoUpdater.checkForUpdates().catch(err => {
       logger.warn('Failed to check for updates', { error: err.message })
     })
-  }, 5000) // Wait 5 seconds after app start
+  }, 5000)
 }
 
 export function quitAndInstall() {
-  autoUpdater.quitAndInstall()
+  autoUpdater.quitAndInstall(false, true)
 }
