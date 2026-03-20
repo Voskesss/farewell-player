@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build Windows
 
 on:
   push:
@@ -6,16 +6,8 @@ on:
       - 'v*'
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            platform: mac
-          - os: windows-latest
-            platform: win
-
-    runs-on: ${{ matrix.os }}
+  build-windows:
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -33,83 +25,27 @@ jobs:
       - name: Build renderer
         run: npm run build:renderer
 
-      # Mac build met code signing
-      - name: Build Mac
-        if: matrix.platform == 'mac'
-        env:
-          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npx electron-builder --mac --publish never
-
-      # Windows build
       - name: Build Windows
-        if: matrix.platform == 'win'
         run: npx electron-builder --win --publish never
 
-      # Upload Mac artifacts
-      - name: Upload Mac DMG
-        if: matrix.platform == 'mac'
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac-dmg
-          path: dist/*.dmg
-
-      - name: Upload Mac ZIP
-        if: matrix.platform == 'mac'
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac-zip
-          path: dist/*-mac.zip
-
-      - name: Upload Mac yml
-        if: matrix.platform == 'mac'
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac-yml
-          path: dist/latest-mac.yml
-
-      # Upload Windows artifacts
       - name: Upload Windows EXE
-        if: matrix.platform == 'win'
         uses: actions/upload-artifact@v4
         with:
-          name: win-exe
+          name: windows-installer
           path: dist/*.exe
 
       - name: Upload Windows yml
-        if: matrix.platform == 'win'
         uses: actions/upload-artifact@v4
         with:
-          name: win-yml
+          name: windows-yml
           path: dist/latest.yml
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-
-      - name: List files
-        run: find dist -type f
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/**/*.dmg
-            dist/**/*.zip
-            dist/**/*.exe
-            dist/**/*.yml
-            dist/**/*.blockmap
+            dist/*.exe
+            dist/latest.yml
           draft: false
           prerelease: false
         env:
