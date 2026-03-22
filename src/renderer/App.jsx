@@ -4,6 +4,7 @@ import Presentation from './components/Presentation'
 import DropZone from './components/DropZone'
 import ErrorBoundary from './components/ErrorBoundary'
 import UpdateNotification from './components/UpdateNotification'
+import { I18nProvider } from './i18n'
 import { loadFarewellFile } from './utils/farewellLoader'
 
 function AppContent() {
@@ -116,12 +117,14 @@ function AppContent() {
   )
 }
 
-// Wrap de hele app in ErrorBoundary voor crash-proof UI
+// Wrap de hele app in ErrorBoundary en I18nProvider
 export default function App() {
   return (
     <ErrorBoundary>
-      <AppContent />
-      <UpdateNotification />
+      <I18nProvider>
+        <AppContent />
+        <UpdateNotification />
+      </I18nProvider>
     </ErrorBoundary>
   )
 }

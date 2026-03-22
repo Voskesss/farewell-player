@@ -1,14 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from '../i18n'
 
-/**
- * MusicPlayer component - Geïntegreerde muziek speler
- * 
- * Ondersteunt:
- * - Meerdere embedded audio tracks uit .farewell bestand
- * - Eigen lokale MP3 bestanden toevoegen
- * - Playlist functionaliteit met next/prev
- * - Loop modus voor sessies
- */
 export default function MusicPlayer({ 
   session, 
   audioTracks = [],
@@ -28,6 +20,7 @@ export default function MusicPlayer({
   const [duration, setDuration] = useState(0)
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
   const audioRef = useRef(null)
+  const { t } = useTranslation()
 
   // Haal alle embedded tracks op (meerdere tracks per sessie)
   const embeddedTracks = session?.audioTracks?.length > 0 
@@ -207,7 +200,7 @@ export default function MusicPlayer({
                 : 'text-slate-400 hover:text-white hover:bg-slate-700'
             }`}
           >
-            🎵 Embedded
+            🎵 {t('musicPlayer.embedded')}
           </button>
         )}
         <button
@@ -218,7 +211,7 @@ export default function MusicPlayer({
               : 'text-slate-400 hover:text-white hover:bg-slate-700'
           }`}
         >
-          📁 Eigen MP3
+          📁 {t('musicPlayer.local')}
         </button>
       </div>
 
@@ -236,8 +229,8 @@ export default function MusicPlayer({
                   <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  <p className="text-sm font-medium">Selecteer MP3 bestand</p>
-                  <p className="text-xs mt-1">Klik om eigen muziek toe te voegen</p>
+                  <p className="text-sm font-medium">{t('musicPlayer.selectFile')}</p>
+                  <p className="text-xs mt-1">{t('musicPlayer.clickToAdd')}</p>
                 </div>
               </button>
             ) : currentAudioUrl ? (
@@ -263,7 +256,7 @@ export default function MusicPlayer({
                       {embeddedTracks.length > 1 && activeTab === 'embedded' && (
                         <span> • Track {currentTrackIndex + 1}/{embeddedTracks.length}</span>
                       )}
-                      {session?.loop && ' • herhalend'}
+                      {session?.loop && ` • ${t('musicPlayer.looping')}`}
                     </p>
                   </div>
                 </div>
@@ -416,13 +409,13 @@ export default function MusicPlayer({
                     onClick={handleSelectLocalFile}
                     className="w-full mt-3 p-2 text-xs text-slate-400 hover:text-white border border-slate-600 rounded-lg transition"
                   >
-                    Andere muziek kiezen
+                    {t('musicPlayer.chooseOther')}
                   </button>
                 )}
               </div>
             ) : (
               <div className="text-center py-4 text-slate-500">
-                <p className="text-sm">Geen audio beschikbaar</p>
+                <p className="text-sm">{t('musicPlayer.noAudio')}</p>
               </div>
             )}
           </div>

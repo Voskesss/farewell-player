@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from '../i18n'
 
 /**
  * Update notification component
  * Toont een subtiele melding wanneer er een update beschikbaar is
  */
 export default function UpdateNotification() {
+  const { t } = useTranslation()
   const [updateInfo, setUpdateInfo] = useState(null)
   const [downloadProgress, setDownloadProgress] = useState(null)
   const [updateReady, setUpdateReady] = useState(false)
@@ -76,10 +78,10 @@ export default function UpdateNotification() {
 
           <div className="flex-1 min-w-0">
             <h4 className="text-white font-medium text-sm">
-              {updateReady ? 'Update klaar!' : 'Update beschikbaar'}
+              {updateReady ? t('update.ready') : t('update.available')}
             </h4>
             <p className="text-slate-400 text-xs mt-0.5">
-              Versie {updateInfo.version} {updateReady ? '- Klik om te installeren' : 'wordt gedownload...'}
+              {t('app.version')} {updateInfo.version} {updateReady ? `- ${t('update.clickToInstall')}` : ''}
             </p>
 
             {/* Download progress */}
@@ -92,7 +94,7 @@ export default function UpdateNotification() {
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  {downloadProgress > 0 ? `Downloaden... ${downloadProgress}%` : 'Start download...'}
+                  {downloadProgress > 0 ? t('update.downloadProgress', { percent: downloadProgress }) : t('update.downloading')}
                 </p>
               </div>
             )}
@@ -101,10 +103,10 @@ export default function UpdateNotification() {
             {error && (
               <div className="mt-2">
                 <p className="text-xs text-red-400">
-                  Fout: {error}
+                  {t('update.error')}: {error}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Herstart de app om opnieuw te proberen
+                  {t('update.restartToRetry')}
                 </p>
               </div>
             )}
@@ -116,13 +118,13 @@ export default function UpdateNotification() {
                   onClick={handleDismiss}
                   className="px-3 py-1.5 text-xs text-slate-400 hover:text-white transition"
                 >
-                  Later
+                  {t('update.later')}
                 </button>
                 <button
                   onClick={handleInstall}
                   className="px-3 py-1.5 text-xs bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition"
                 >
-                  Nu installeren
+                  {t('update.installNow')}
                 </button>
               </div>
             )}

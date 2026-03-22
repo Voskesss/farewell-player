@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useTranslation } from '../i18n'
 
 export default function DropZone({ onFileLoad }) {
+  const { t, language, setLanguage, availableLanguages } = useTranslation()
   const [isDragging, setIsDragging] = useState(false)
   const [appVersion, setAppVersion] = useState('')
 
@@ -33,13 +35,12 @@ export default function DropZone({ onFileLoad }) {
     if (farewellFile) {
       onFileLoad(farewellFile.path)
     } else {
-      alert('Sleep een .farewell bestand hierheen')
+      alert(t('errors.dropFarewellFile'))
     }
-  }, [onFileLoad])
+  }, [onFileLoad, t])
 
   const handleOpenDialog = async () => {
     if (!window.electronAPI) {
-      alert('Electron API niet beschikbaar')
       return
     }
     
@@ -51,9 +52,27 @@ export default function DropZone({ onFileLoad }) {
 
   return (
     <div className="h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-slate-900 to-slate-800">
+      {/* Language selector */}
+      <div className="absolute top-4 right-4 flex gap-1">
+        {availableLanguages.map(lang => (
+          <button
+            key={lang.code}
+            onClick={() => setLanguage(lang.code)}
+            className={`px-2 py-1 text-sm rounded transition ${
+              language === lang.code 
+                ? 'bg-primary-600 text-white' 
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+            title={lang.name}
+          >
+            {lang.flag}
+          </button>
+        ))}
+      </div>
+
       <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Farewell Player</h1>
-        <p className="text-slate-400">Offline presentatie speler voor uitvaartpresentaties</p>
+        <h1 className="text-4xl font-bold text-white mb-2">{t('dropZone.title')}</h1>
+        <p className="text-slate-400">{t('dropZone.subtitle')}</p>
       </div>
 
       <div
@@ -80,16 +99,16 @@ export default function DropZone({ onFileLoad }) {
         </svg>
         
         <p className="text-lg text-white mb-2">
-          Sleep een <span className="font-mono text-primary-400">.farewell</span> bestand hierheen
+          {t('dropZone.dropHere')} <span className="font-mono text-primary-400">{t('dropZone.fileType')}</span> {t('dropZone.dropHereEnd')}
         </p>
         <p className="text-slate-500 text-sm">
-          of klik om een bestand te selecteren
+          {t('dropZone.orClick')}
         </p>
       </div>
 
       <div className="mt-8 text-center">
         <p className="text-slate-500 text-sm">
-          Versie {appVersion || '...'} • The Last Farewell
+          {t('app.version')} {appVersion || '...'} • {t('app.madeBy')}
         </p>
       </div>
     </div>
