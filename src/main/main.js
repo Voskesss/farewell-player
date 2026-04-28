@@ -219,6 +219,14 @@ ipcMain.handle('get-displays', async () => {
   }))
 })
 
+ipcMain.handle('set-main-window-fullscreen', async (event, enabled) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win && !win.isDestroyed()) {
+    win.setFullScreen(Boolean(enabled))
+  }
+  return true
+})
+
 // Log error van renderer
 ipcMain.handle('log-error', async (event, errorData) => {
   if (logger) {

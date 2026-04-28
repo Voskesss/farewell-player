@@ -10,9 +10,11 @@ PowerPoint in presentatormodus gebruikt **twee beelden**:
 In deze Electron-app gebeurt het kernstuk al zo:
 
 - **`createPresentationWindow` in `src/main/main.js`** opent een **tweede venster** op het **externe scherm** (als er een tweede monitor is), **fullscreen**, zonder vensterkader — dat is je **publieksscherm**.
-- Het **controller-venster** blijft op je **primaire** monitor — dat is je **bediening**.
+- Het **controller-venster** blijft op je **primaire** monitor — dat is je **bediening** (nu ook **fullscreen** tijdens bediening).
 
 Dat is hetzelfde idee als “presentatie op extern beeld”: het publiek ziet alleen wat in het presentatievenster staat.
+
+**Geluid:** zodra het publieksscherm open is, is de **voorbeeldvideo in de controller gedempt** (volume 0, geen native controls), zodat je niet twee keer dezelfde video-audio hoort. Achtergrondmuziek (`MusicPlayer`) speelt alleen in het bedieningsvenster; video-audio hoort je op het **publieksscherm**.
 
 ## Wat nog mist voor “echt PowerPoint-gevoel” (v3 UI)
 

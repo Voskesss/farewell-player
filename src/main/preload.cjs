@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Schermen
   getDisplays: () => ipcRenderer.invoke('get-displays'),
+  /** Hoofdvenster (bediening) fullscreen — alleen geluid/video op publieksscherm laten horen */
+  setMainWindowFullscreen: (enabled) => ipcRenderer.invoke('set-main-window-fullscreen', enabled),
   
   // Ontvang commando's van controller (voor presentatie venster)
   onPresentationCommand: (callback) => {

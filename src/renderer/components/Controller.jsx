@@ -625,6 +625,29 @@ export default function Controller({
     }
   }, [isPlaying, presentationWindowOpen])
 
+  // Bediening altijd fullscreen (zelfde venster als app); bij terug naar startscherm weer uit
+  useEffect(() => {
+    if (!window.electronAPI?.setMainWindowFullscreen) return undefined
+    window.electronAPI.setMainWindowFullscreen(true).catch(() => {})
+    return () => {
+      window.electronAPI.setMainWindowFullscreen(false).catch(() => {})
+    }
+  }, [])
+
+  // Geen dubbel geluid: zelfde video speelde in controller én op publieksscherm
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v || !slides[currentSlideIndex]?.isVideo) return
+    if (presentationWindowOpen) {
+      v.muted = true
+      v.volume = 0
+    } else {
+      const s = slides[currentSlideIndex]
+      v.muted = s.videoMuted ?? true
+      v.volume = (s.videoVolume ?? 100) / 100
+    }
+  }, [presentationWindowOpen, currentSlideIndex, slides])
+
   const togglePlay = () => {
     setIsPlaying(!isPlaying)
   }
@@ -700,8 +723,10 @@ export default function Controller({
                     ref={videoRef}
                     src={currentSlide.url}
                     className="max-w-full max-h-full object-contain"
-                    controls
-                    muted={currentSlide.videoMuted ?? true}
+                    controls={!presentationWindowOpen}
+                    muted={
+                      presentationWindowOpen ? true : (currentSlide.videoMuted ?? true)
+                    }
                     onEnded={() => {
                       console.log('[Controller] Video onEnded triggered')
                       handleVideoEnded()
@@ -710,7 +735,12 @@ export default function Controller({
                       if (currentSlide.videoStart > 0) {
                         e.target.currentTime = currentSlide.videoStart
                       }
-                      e.target.volume = (currentSlide.videoVolume ?? 100) / 100
+                      if (presentationWindowOpen) {
+                        e.target.muted = true
+                        e.target.volume = 0
+                      } else {
+                        e.target.volume = (currentSlide.videoVolume ?? 100) / 100
+                      }
                     }}
                     onTimeUpdate={(e) => {
                       if (currentSlide.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
