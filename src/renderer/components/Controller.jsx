@@ -532,11 +532,19 @@ export default function Controller({
   const goToSlide = useCallback((index) => {
     const clampedIndex = Math.max(0, Math.min(index, slides.length - 1))
     setCurrentSlideIndex(clampedIndex)
-    
+
     // Sync met presentatie venster
     if (window.electronAPI) {
       window.electronAPI.sendToPresentation('goto', { index: clampedIndex })
     }
+
+    // Verwijder focus van tijdblok-/miniatuurknoppen — anders blijft de browser-focusrand zichtbaar na ↑/↓ of klik
+    requestAnimationFrame(() => {
+      const el = document.activeElement
+      if (el instanceof HTMLElement && el.getAttribute('data-blur-on-nav') === 'true') {
+        el.blur()
+      }
+    })
   }, [slides.length, setCurrentSlideIndex])
 
   // Check elke seconde of sessie moet stoppen en naar volgende gaan
@@ -702,6 +710,18 @@ export default function Controller({
   const activeRange = sessionSlideRanges[uiSessionIndex]
   const activeSession = activeRange?.session
 
+  const nextSlideIdx = currentSlideIndex + 1
+  const nextSlideBlockHint =
+    nextSlideIdx < slides.length
+      ? (() => {
+          const nextSi = getSessionIndexForSlide(nextSlideIdx)
+          if (nextSi === uiSessionIndex) return { kind: 'same' }
+          const s = sessionSlideRanges[nextSi]?.session
+          const label = s?.name || `${t('controller.session')} ${nextSi + 1}`
+          return { kind: 'next', name: label }
+        })()
+      : null
+
   return (
     <div className="h-screen flex flex-col bg-[#141414] text-slate-100">
       {/* Top bar — PowerPoint-achtig */}
@@ -840,9 +860,19 @@ export default function Controller({
                   )}
                 </div>
                 {nextSlide && (
-                  <p className="text-center text-xs text-slate-500 shrink-0">
-                    {t('controller.slide')} {currentSlideIndex + 2} {t('controller.of')} {slides.length}
-                  </p>
+                  <div className="text-center shrink-0 space-y-0.5">
+                    <p className="text-xs text-slate-500">
+                      {t('controller.slide')} {currentSlideIndex + 2} {t('controller.of')} {slides.length}
+                    </p>
+                    {nextSlideBlockHint?.kind === 'same' && (
+                      <p className="text-[11px] font-medium text-emerald-400/90">{t('controller.nextWithinTimeBlock')}</p>
+                    )}
+                    {nextSlideBlockHint?.kind === 'next' && (
+                      <p className="text-[11px] font-medium text-amber-400/95">
+                        {t('controller.nextNewTimeBlock', { name: nextSlideBlockHint.name })}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -977,8 +1007,9 @@ export default function Controller({
                   <button
                     type="button"
                     key={`session-${sessionIdx}`}
+                    data-blur-on-nav="true"
                     onClick={() => goToSlide(range.start)}
-                    className={`w-full text-left rounded-lg p-3 transition ${
+                    className={`w-full text-left rounded-lg p-3 transition focus:outline-none ${
                       isCurrentSession
                         ? `${colors.bg} border border-slate-600/50 border-l-4 ${colors.border} ring-1 ring-white/10`
                         : 'border border-slate-800 bg-slate-900/50 hover:bg-slate-800/80'
@@ -1049,13 +1080,13 @@ export default function Controller({
         </div>
         {/* Filmstrook — alle dia's (groter, PowerPoint-achtig + dia-nummer) */}
         <div
-          className="flex-shrink-0 min-h-[13rem] h-[26vh] max-h-[min(320px,32vh)] border-t border-slate-800 bg-[#0a0a0a] flex flex-col gap-1.5 py-2 pl-3 pr-2"
+          className="flex-shrink-0 min-h-[14rem] h-[28vh] max-h-[min(360px,36vh)] border-t border-slate-800 bg-[#0a0a0a] flex flex-col gap-1.5 py-2 pl-3 pr-2"
           style={{ willChange: 'scroll-position' }}
         >
           <div className="text-xs text-slate-500 font-medium shrink-0">
             {t('controller.allSlides')} · {t('controller.slide')} {currentSlideIndex + 1} {t('controller.of')} {slides.length}
           </div>
-          <div className="flex-1 min-h-0 flex items-stretch gap-2 sm:gap-2.5 overflow-x-auto overflow-y-hidden pb-1 scroll-smooth">
+          <div className="flex-1 min-h-0 flex items-center gap-2 sm:gap-2.5 overflow-x-auto overflow-y-hidden pb-1 scroll-smooth">
             {slides.map((slide, idx) => {
               const sIdx = getSessionIndexForSlide(idx)
               const range = sessionSlideRanges[sIdx]
@@ -1065,8 +1096,9 @@ export default function Controller({
                 <button
                   type="button"
                   key={idx}
+                  data-blur-on-nav="true"
                   onClick={() => goToSlide(idx)}
-                  className={`flex flex-col shrink-0 h-full max-h-full w-36 sm:w-40 md:w-44 lg:w-48 rounded-lg overflow-hidden border-[3px] transition-all ${
+                  className={`flex flex-col shrink-0 w-44 sm:w-52 md:w-60 lg:w-[17rem] rounded-lg overflow-hidden border-[3px] transition-all focus:outline-none ${
                     isFirstInBlock ? 'ml-2 border-l-2 border-l-slate-500 pl-2 rounded-l-none' : ''
                   } ${
                     idx === currentSlideIndex
@@ -1074,10 +1106,10 @@ export default function Controller({
                       : 'border-slate-700 hover:border-slate-500 opacity-90 hover:opacity-100 hover:scale-[1.01]'
                   }`}
                 >
-                  <div className="flex-1 min-h-0 w-full bg-black relative">
+                  <div className="relative w-full aspect-video bg-black">
                     {slide.isVideo ? (
                       <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                        <svg className="w-7 h-7 sm:w-8 sm:h-8 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-8 h-8 sm:w-9 sm:h-9 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </div>
@@ -1086,7 +1118,7 @@ export default function Controller({
                     )}
                   </div>
                   <div
-                    className={`shrink-0 text-center text-[11px] sm:text-xs py-1 font-medium tabular-nums text-white ${
+                    className={`shrink-0 text-center text-[11px] sm:text-xs py-0.5 font-medium tabular-nums text-white ${
                       idx === currentSlideIndex ? 'bg-orange-600' : sc.bottomAccent
                     }`}
                   >

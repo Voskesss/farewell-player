@@ -72,6 +72,8 @@ export const nl = {
     timeBlocks: 'Tijdblokken',
     endOfPresentation: 'Einde van de presentatie',
     allSlides: 'Alle dia\'s',
+    nextWithinTimeBlock: 'Nog in dit tijdblok',
+    nextNewTimeBlock: 'Volgend tijdblok: {name}',
   },
 
   // Music Player

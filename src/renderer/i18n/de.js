@@ -72,6 +72,8 @@ export const de = {
     timeBlocks: 'Zeitblöcke',
     endOfPresentation: 'Ende der Präsentation',
     allSlides: 'Alle Folien',
+    nextWithinTimeBlock: 'Noch in diesem Zeitblock',
+    nextNewTimeBlock: 'Nächster Zeitblock: {name}',
   },
 
   // Music Player
