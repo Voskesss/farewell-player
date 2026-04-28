@@ -24,6 +24,7 @@ export default function Controller({
   const videoRef = useRef(null)
   const elapsedTimerRef = useRef(null)
   const videoEndedDebounceRef = useRef(null)
+  const filmStripActiveThumbRef = useRef(null)
   const [wallNow, setWallNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -32,6 +33,15 @@ export default function Controller({
   }, [])
 
   const { slides, audioTracks, settings, name, externalMusic, sessions } = presentation
+
+  // Filmstrook: actieve miniatuur horizontaal meescrollen (anders blijft de oranje rand buiten beeld)
+  useEffect(() => {
+    filmStripActiveThumbRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    })
+  }, [currentSlideIndex])
 
   // Helper: bepaal sessie type kleuren (uit SECTION_COLORS.md)
   const getSessionColors = (session) => {
@@ -1154,6 +1164,7 @@ export default function Controller({
                 <button
                   type="button"
                   key={idx}
+                  ref={idx === currentSlideIndex ? filmStripActiveThumbRef : undefined}
                   data-blur-on-nav="true"
                   onClick={() => goToSlide(idx)}
                   className={`flex flex-col shrink-0 w-44 sm:w-52 md:w-60 lg:w-[17rem] rounded-lg overflow-hidden border-[3px] transition-all focus:outline-none ${
