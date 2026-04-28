@@ -685,14 +685,20 @@ export default function Controller({
     }
   }, [isPlaying, presentationWindowOpen])
 
-  // Bediening altijd fullscreen (zelfde venster als app); bij terug naar startscherm weer uit
+  // Bediening fullscreen zodra de controller zichtbaar is.
+  // Geen cleanup naar windowed hier: React 18 Strict Mode zou dan in dev kort false→true flikkeren.
+  // Uitzetten gebeurt alleen bij sluiten (knop X) via handleExitController.
   useEffect(() => {
-    if (!window.electronAPI?.setMainWindowFullscreen) return undefined
+    if (!window.electronAPI?.setMainWindowFullscreen) return
     window.electronAPI.setMainWindowFullscreen(true).catch(() => {})
-    return () => {
+  }, [])
+
+  const handleExitController = useCallback(() => {
+    if (window.electronAPI?.setMainWindowFullscreen) {
       window.electronAPI.setMainWindowFullscreen(false).catch(() => {})
     }
-  }, [])
+    onClose()
+  }, [onClose])
 
   // Geen dubbel geluid: zelfde video speelde in controller én op publieksscherm
   useEffect(() => {
@@ -738,7 +744,7 @@ export default function Controller({
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleExitController}
             className="p-2 hover:bg-slate-800 rounded-lg transition shrink-0"
             title={t('controller.closePresentation')}
           >
