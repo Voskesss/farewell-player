@@ -741,7 +741,8 @@ export default function Controller({
       <div className="flex-1 flex flex-col min-h-0">
         {/* Midden: huidige + volgende dia naast elkaar | rechts: alle tijdblokken + muziek */}
         <div className="flex-1 flex min-h-0">
-          <div className="flex-1 min-w-0 flex flex-col p-3 pt-2 gap-2">
+          {/* Middenkolom: ~75–80% venster — slides; rechts ~20–25% tijdblokken (PowerPoint ~55/45 binnen slidevlak) */}
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col p-3 pt-2 gap-2 overflow-hidden">
             <div className="flex items-center justify-between text-xs text-slate-400 px-1 shrink-0">
               <span className="tabular-nums font-medium text-slate-300">
                 ⏱ {t('controller.elapsed')}: {formatTime(sessionElapsedTime[currentSessionIndex] || 0)}
@@ -754,8 +755,8 @@ export default function Controller({
               </span>
             </div>
 
-            <div className="flex-1 min-h-0 flex gap-3 lg:gap-4">
-              <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 lg:gap-4">
+              <div className="min-h-0 min-w-0 w-full lg:w-[74%] lg:shrink-0 flex flex-col">
                 <div className="flex-1 min-h-0 bg-black rounded-lg overflow-hidden flex items-center justify-center relative border border-slate-700/80 shadow-inner">
                   {currentSlide?.isVideo ? (
                     <>
@@ -807,11 +808,11 @@ export default function Controller({
                 </div>
               </div>
 
-              <div className="w-[30%] min-w-[10.5rem] max-w-xs lg:max-w-sm shrink-0 flex flex-col gap-2 min-h-0">
-                <h2 className="text-sm font-normal text-slate-200 shrink-0">
+              <div className="min-h-[10rem] lg:min-h-0 w-full lg:w-[26%] lg:shrink-0 flex flex-col gap-2 min-w-0">
+                <h2 className="text-sm font-medium text-slate-100 shrink-0">
                   {t('controller.nextSlidePreview')}
                 </h2>
-                <div className="flex-1 min-h-0 min-w-0 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-slate-700 shadow-md">
+                <div className="flex-1 min-h-[8rem] lg:min-h-0 min-w-0 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-slate-600 shadow-md">
                   {nextSlide ? (
                     nextSlide.isVideo ? (
                       <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400 p-2">
@@ -954,7 +955,7 @@ export default function Controller({
             </div>
           </div>
 
-          <aside className="w-72 xl:w-80 flex-shrink-0 flex flex-col border-l border-slate-800 bg-[#0c0c0c] min-h-0">
+          <aside className="w-72 shrink-0 sm:w-80 lg:w-[24%] lg:min-w-[18rem] lg:max-w-[22rem] flex flex-col border-l border-slate-800 bg-[#0c0c0c] min-h-0">
             <h2 className="text-sm font-medium text-slate-100 px-3 pt-3 pb-2 shrink-0 border-b border-slate-800">
               {t('controller.timeBlocks')}
             </h2>
@@ -1040,7 +1041,7 @@ export default function Controller({
         </div>
         {/* Filmstrook — alle dia's (groter, PowerPoint-achtig + dia-nummer) */}
         <div
-          className="flex-shrink-0 min-h-[11rem] h-[22vh] max-h-[260px] border-t border-slate-800 bg-[#0a0a0a] flex flex-col gap-1.5 py-2 pl-3 pr-2"
+          className="flex-shrink-0 min-h-[13rem] h-[26vh] max-h-[min(320px,32vh)] border-t border-slate-800 bg-[#0a0a0a] flex flex-col gap-1.5 py-2 pl-3 pr-2"
           style={{ willChange: 'scroll-position' }}
         >
           <div className="text-xs text-slate-500 font-medium shrink-0">
@@ -1057,7 +1058,7 @@ export default function Controller({
                   type="button"
                   key={idx}
                   onClick={() => goToSlide(idx)}
-                  className={`flex flex-col shrink-0 h-full max-h-full w-[7.5rem] sm:w-36 md:w-40 rounded-lg overflow-hidden border-[3px] transition-all ${
+                  className={`flex flex-col shrink-0 h-full max-h-full w-36 sm:w-40 md:w-44 lg:w-48 rounded-lg overflow-hidden border-[3px] transition-all ${
                     isFirstInBlock ? 'ml-2 border-l-2 border-l-slate-500 pl-2 rounded-l-none' : ''
                   } ${
                     idx === currentSlideIndex

@@ -58,7 +58,7 @@ export const nl = {
     
     // Display selection
     selectDisplay: 'Selecteer scherm',
-    startPresentation: 'Start presentatie',
+    startPresentation: 'Projecteer op extern scherm',
     stopPresentation: 'Stop presentatie',
     presentationActive: 'Presentatie actief',
     primaryDisplay: 'Primair',

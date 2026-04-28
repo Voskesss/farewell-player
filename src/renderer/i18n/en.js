@@ -58,7 +58,7 @@ export const en = {
     
     // Display selection
     selectDisplay: 'Select display',
-    startPresentation: 'Start presentation',
+    startPresentation: 'Show on external display',
     stopPresentation: 'Stop presentation',
     presentationActive: 'Presentation active',
     primaryDisplay: 'Primary',

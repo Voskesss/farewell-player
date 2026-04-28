@@ -58,7 +58,7 @@ export const de = {
     
     // Display selection
     selectDisplay: 'Bildschirm auswählen',
-    startPresentation: 'Präsentation starten',
+    startPresentation: 'Auf externem Bildschirm anzeigen',
     stopPresentation: 'Präsentation beenden',
     presentationActive: 'Präsentation aktiv',
     primaryDisplay: 'Primär',
