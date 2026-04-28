@@ -60,7 +60,14 @@ export const en = {
     // Display selection
     selectDisplay: 'Select display',
     startPresentation: 'Show on external display',
+    startPresentationShort: 'Project',
+    projectExternalTooltip:
+      'Opens the presentation fullscreen on the selected display (pick «External» first). This window stays your control panel.',
+    stopPresentationTooltip: 'Close the presentation window on the other screen',
+    projectExternalBanner:
+      'Pick the display (often 📺 External), then press the button — slides go fullscreen on that monitor.',
     stopPresentation: 'Stop presentation',
+    stopPresentationShort: 'Stop',
     presentationActive: 'Presentation active',
     primaryDisplay: 'Primary',
     externalDisplay: 'External',

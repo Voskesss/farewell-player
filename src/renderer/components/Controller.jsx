@@ -771,16 +771,52 @@ export default function Controller({
           <button
             type="button"
             onClick={presentationWindowOpen ? closePresentationWindow : openPresentationWindow}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+            className={`flex items-center gap-2 shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition shadow-sm ${
               presentationWindowOpen
                 ? 'bg-red-600 hover:bg-red-700 text-white'
                 : 'bg-primary-600 hover:bg-primary-700 text-white'
             }`}
+            title={
+              presentationWindowOpen
+                ? t('controller.stopPresentationTooltip')
+                : t('controller.projectExternalTooltip')
+            }
+            aria-label={
+              presentationWindowOpen ? t('controller.stopPresentation') : t('controller.startPresentation')
+            }
           >
-            {presentationWindowOpen ? t('controller.stopPresentation') : t('controller.startPresentation')}
+            {presentationWindowOpen ? (
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <rect x="3" y="4" width="18" height="12" rx="1" strokeWidth={2} />
+                <path strokeLinecap="round" strokeWidth={2} d="M12 16v3M9 21h6" />
+              </svg>
+            )}
+            <span className="hidden sm:inline truncate max-w-[14rem] lg:max-w-[20rem]">
+              {presentationWindowOpen ? t('controller.stopPresentation') : t('controller.startPresentation')}
+            </span>
+            <span className="sm:hidden">
+              {presentationWindowOpen ? t('controller.stopPresentationShort') : t('controller.startPresentationShort')}
+            </span>
           </button>
         </div>
       </header>
+
+      {!presentationWindowOpen && (
+        <div
+          className="flex-shrink-0 flex items-start sm:items-center justify-center gap-2 px-3 py-2 sm:py-2.5 bg-primary-900/35 border-b border-primary-700/50 text-[11px] sm:text-xs text-primary-100/95 leading-snug"
+          role="status"
+        >
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 mt-0.5 sm:mt-0 text-primary-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <rect x="3" y="4" width="18" height="12" rx="1" strokeWidth={2} />
+            <path strokeLinecap="round" strokeWidth={2} d="M12 16v3M9 21h6" />
+          </svg>
+          <span className="text-center sm:text-left max-w-3xl">{t('controller.projectExternalBanner')}</span>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-h-0">
         {/* Midden: huidige + volgende dia naast elkaar | rechts: alle tijdblokken + muziek */}

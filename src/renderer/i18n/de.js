@@ -60,7 +60,14 @@ export const de = {
     // Display selection
     selectDisplay: 'Bildschirm auswählen',
     startPresentation: 'Auf externem Bildschirm anzeigen',
+    startPresentationShort: 'Zeigen',
+    projectExternalTooltip:
+      'Öffnet die Präsentation im Vollbild auf dem gewählten Bildschirm (zuerst «Extern» wählen). Dieses Fenster bleibt die Steuerung.',
+    stopPresentationTooltip: 'Präsentationsfenster auf dem anderen Bildschirm schließen',
+    projectExternalBanner:
+      'Bildschirm wählen (oft 📺 Extern), dann Knopf — Folien erscheinen dort im Vollbild.',
     stopPresentation: 'Präsentation beenden',
+    stopPresentationShort: 'Beenden',
     presentationActive: 'Präsentation aktiv',
     primaryDisplay: 'Primär',
     externalDisplay: 'Extern',

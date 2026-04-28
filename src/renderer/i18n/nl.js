@@ -60,7 +60,14 @@ export const nl = {
     // Display selection
     selectDisplay: 'Selecteer scherm',
     startPresentation: 'Projecteer op extern scherm',
+    startPresentationShort: 'Projecteer',
+    projectExternalTooltip:
+      'Opent de presentatie fullscreen op het gekozen scherm (kies eerst in de lijst meestal «Extern»). Dit venster blijft je bediening.',
+    stopPresentationTooltip: 'Sluit het presentatievenster op het andere scherm',
+    projectExternalBanner:
+      'Kies het scherm hiernaast (vaak 📺 Extern), daarna op de knop — de dia verschijnt fullscreen op die monitor.',
     stopPresentation: 'Stop presentatie',
+    stopPresentationShort: 'Stop',
     presentationActive: 'Presentatie actief',
     primaryDisplay: 'Primair',
     externalDisplay: 'Extern',
