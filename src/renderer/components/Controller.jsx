@@ -701,22 +701,20 @@ export default function Controller({
       </header>
 
       <div className="flex-1 flex flex-col min-h-0">
+        {/* Boven: ~60% huidige dia / ~40% volgende + notities (PowerPoint-verhouding) */}
         <div className="flex-1 flex min-h-0">
-          {/* Links: timers + hoofddia + bediening */}
-          <div className="flex-1 flex flex-col min-w-0 p-3 gap-2">
-            <div className="flex justify-between items-center text-xs text-slate-500 px-1">
-              <span className="tabular-nums">
+          {/* Links: huidige dia */}
+          <div className="flex-[3] min-w-0 flex flex-col p-3 pt-2 gap-2">
+            <div className="flex items-center gap-2 text-xs text-slate-400 px-1">
+              <span className="tabular-nums font-medium text-slate-300">
                 ⏱ {t('controller.elapsed')}: {formatTime(sessionElapsedTime[currentSessionIndex] || 0)}
                 {getSessionTotalDuration(currentSessionIndex)
                   ? ` / ${formatTime(getSessionTotalDuration(currentSessionIndex))}`
                   : ''}
               </span>
-              <span className="tabular-nums text-slate-400">
-                {wallNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-              </span>
             </div>
 
-            <div className="flex-1 min-h-0 bg-black rounded-lg overflow-hidden flex items-center justify-center relative border border-slate-800 shadow-inner">
+            <div className="flex-1 min-h-0 bg-black rounded-lg overflow-hidden flex items-center justify-center relative border border-slate-700/80 shadow-inner">
               {currentSlide?.isVideo ? (
                 <>
                   <video
@@ -764,6 +762,23 @@ export default function Controller({
                   className="max-w-full max-h-full object-contain"
                 />
               )}
+            </div>
+
+            {/* Voortgang (PowerPoint-achtig) */}
+            <div className="shrink-0 px-0.5">
+              <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
+                <span>
+                  {t('controller.slide')} {currentSlideIndex + 1} {t('controller.of')} {slides.length}
+                </span>
+              </div>
+              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-orange-500 rounded-full transition-all duration-300"
+                  style={{
+                    width: slides.length ? `${((currentSlideIndex + 1) / slides.length) * 100}%` : '0%'
+                  }}
+                />
+              </div>
             </div>
 
             <div className="flex flex-col items-center gap-2 shrink-0">
@@ -866,19 +881,24 @@ export default function Controller({
           </div>
 
           {/* Rechts: volgende dia + notities + muziek + sessies */}
-          <aside className="w-[min(100%,20rem)] sm:w-80 xl:w-[22rem] flex-shrink-0 flex flex-col border-l border-slate-800 bg-[#0f0f0f] min-h-0">
-            <div className="p-3 border-b border-slate-800 flex-shrink-0">
-              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+          <aside className="flex-[2] min-w-0 sm:min-w-[19rem] max-w-xl flex-shrink-0 flex flex-col border-l border-slate-800 bg-[#0c0c0c] min-h-0">
+            <div className="flex justify-end items-center px-3 pt-2 pb-1 shrink-0">
+              <span className="tabular-nums text-sm text-slate-300 font-medium">
+                {wallNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+            <div className="px-3 pb-3 border-b border-slate-800 flex-shrink-0">
+              <h2 className="text-sm font-normal text-slate-200 mb-2 tracking-tight">
                 {t('controller.nextSlidePreview')}
               </h2>
-              <div className="aspect-video bg-black rounded-md overflow-hidden flex items-center justify-center border border-slate-800">
+              <div className="aspect-video bg-black rounded-md overflow-hidden flex items-center justify-center border border-slate-700 shadow-md">
                 {nextSlide ? (
                   nextSlide.isVideo ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-500">
-                      <svg className="w-8 h-8 mb-1" fill="currentColor" viewBox="0 0 24 24">
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400">
+                      <svg className="w-12 h-12 mb-2 opacity-80" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
                       </svg>
-                      <span className="text-xs">{t('controller.slide')} {currentSlideIndex + 2}</span>
+                      <span className="text-sm">{t('controller.slide')} {currentSlideIndex + 2}</span>
                     </div>
                   ) : (
                     <img
@@ -888,13 +908,18 @@ export default function Controller({
                     />
                   )
                 ) : (
-                  <span className="text-xs text-slate-600 px-2 text-center">{t('controller.endOfPresentation')}</span>
+                  <span className="text-sm text-slate-500 px-3 text-center">{t('controller.endOfPresentation')}</span>
                 )}
               </div>
+              {nextSlide && (
+                <p className="mt-2 text-center text-xs text-slate-500">
+                  {t('controller.slide')} {currentSlideIndex + 2} {t('controller.of')} {slides.length}
+                </p>
+              )}
             </div>
 
             <div className="flex-1 min-h-[100px] flex flex-col p-3 border-b border-slate-800 overflow-hidden">
-              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              <h2 className="text-sm font-normal text-slate-200 mb-2">
                 {t('controller.notes')}
               </h2>
               <div className="flex-1 overflow-y-auto rounded-md bg-amber-950/25 border border-amber-900/30 p-2.5 text-sm text-amber-100/90 leading-relaxed whitespace-pre-wrap">
@@ -983,36 +1008,47 @@ export default function Controller({
           </aside>
         </div>
 
-        {/* Filmstrook — alle dia's */}
+        {/* Filmstrook — alle dia's (groter, PowerPoint-achtig + dia-nummer) */}
         <div
-          className="flex-shrink-0 h-[5.5rem] border-t border-slate-800 bg-black/40 flex items-stretch gap-1.5 px-2 py-1.5 overflow-x-auto"
+          className="flex-shrink-0 min-h-[11rem] h-[22vh] max-h-[260px] border-t border-slate-800 bg-[#0a0a0a] flex flex-col gap-1.5 py-2 pl-3 pr-2"
           style={{ willChange: 'scroll-position' }}
         >
-          <span className="text-[10px] text-slate-600 uppercase tracking-wide self-center pr-1 shrink-0 hidden sm:inline">
-            {t('controller.allSlides')}
-          </span>
-          {slides.map((slide, idx) => (
-            <button
-              type="button"
-              key={idx}
-              onClick={() => goToSlide(idx)}
-              className={`h-full aspect-video shrink-0 rounded overflow-hidden border-2 transition ${
-                idx === currentSlideIndex
-                  ? 'border-primary-500 ring-2 ring-primary-500/40 scale-[1.02]'
-                  : 'border-slate-800 hover:border-slate-600 opacity-80 hover:opacity-100'
-              }`}
-            >
-              {slide.isVideo ? (
-                <div className="w-full h-full bg-slate-900 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+          <div className="text-xs text-slate-500 font-medium shrink-0">
+            {t('controller.allSlides')} · {t('controller.slide')} {currentSlideIndex + 1} {t('controller.of')} {slides.length}
+          </div>
+          <div className="flex-1 min-h-0 flex items-stretch gap-2 sm:gap-2.5 overflow-x-auto overflow-y-hidden pb-1 scroll-smooth">
+            {slides.map((slide, idx) => (
+              <button
+                type="button"
+                key={idx}
+                onClick={() => goToSlide(idx)}
+                className={`flex flex-col shrink-0 h-full max-h-full w-[7.5rem] sm:w-36 md:w-40 rounded-lg overflow-hidden border-[3px] transition-all ${
+                  idx === currentSlideIndex
+                    ? 'border-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.5)] scale-[1.03] z-10'
+                    : 'border-slate-700 hover:border-slate-500 opacity-90 hover:opacity-100 hover:scale-[1.01]'
+                }`}
+              >
+                <div className="flex-1 min-h-0 w-full bg-black relative">
+                  {slide.isVideo ? (
+                    <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                      <svg className="w-7 h-7 sm:w-8 sm:h-8 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <img src={slide.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  )}
                 </div>
-              ) : (
-                <img src={slide.url} alt="" className="w-full h-full object-cover" />
-              )}
-            </button>
-          ))}
+                <div
+                  className={`shrink-0 text-center text-[11px] sm:text-xs py-1 font-medium tabular-nums ${
+                    idx === currentSlideIndex ? 'bg-orange-950/80 text-orange-100' : 'bg-black/80 text-slate-400'
+                  }`}
+                >
+                  {idx + 1}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
