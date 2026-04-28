@@ -15,7 +15,7 @@ export default function Controller({
   const [selectedDisplay, setSelectedDisplay] = useState(null)
   const [presentationWindowOpen, setPresentationWindowOpen] = useState(false)
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
-  const [playingAudioSession, setPlayingAudioSession] = useState(null)
+  const [, setPlayingAudioSession] = useState(null)
   const [sessionElapsedTime, setSessionElapsedTime] = useState({}) // Elapsed time per sessie in seconden
   const [audioDurations, setAudioDurations] = useState({}) // Audio duur per sessie
   const [audioEnded, setAudioEnded] = useState({}) // Track of audio klaar is per sessie
@@ -24,6 +24,12 @@ export default function Controller({
   const videoRef = useRef(null)
   const elapsedTimerRef = useRef(null)
   const videoEndedDebounceRef = useRef(null)
+  const [wallNow, setWallNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const id = setInterval(() => setWallNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
 
   const { slides, audioTracks, settings, name, externalMusic, sessions } = presentation
 
@@ -624,397 +630,362 @@ export default function Controller({
   }
 
   const currentSlide = slides[currentSlideIndex]
+  const nextSlide = currentSlideIndex + 1 < slides.length ? slides[currentSlideIndex + 1] : null
+  const activeRange = sessionSlideRanges[currentSessionIndex]
+  const activeSession = activeRange?.session
 
   return (
-    <div className="h-screen flex flex-col bg-slate-900">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-slate-800 border-b border-slate-700">
-        <div className="flex items-center gap-4">
+    <div className="h-screen flex flex-col bg-[#141414] text-slate-100">
+      {/* Top bar — PowerPoint-achtig */}
+      <header className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-black/50 border-b border-slate-800">
+        <div className="flex items-center gap-3 min-w-0">
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-slate-700 rounded-lg transition"
+            className="p-2 hover:bg-slate-800 rounded-lg transition shrink-0"
             title={t('controller.closePresentation')}
           >
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold text-white">{name}</h1>
+          <h1 className="text-base font-semibold text-white truncate">{name}</h1>
         </div>
-
-        <div className="flex items-center gap-4">
-          {/* Scherm selectie */}
+        <div className="flex items-center gap-2 shrink-0">
           <select
             value={selectedDisplay || ''}
             onChange={(e) => setSelectedDisplay(Number(e.target.value))}
-            className="bg-slate-700 text-white px-3 py-2 rounded-lg text-sm"
+            className="bg-slate-800 text-white px-2 py-1.5 rounded-lg text-xs max-w-[200px]"
           >
             {displays.map(d => (
               <option key={d.id} value={d.id}>
-                {d.isPrimary ? '🖥️ Primair' : '📺 Extern'} ({d.width}x{d.height})
+                {d.isPrimary ? `🖥️ ${t('controller.primaryDisplay')}` : `📺 ${t('controller.externalDisplay')}`} ({d.width}×{d.height})
               </option>
             ))}
           </select>
-
-          {/* Presentatie venster toggle */}
           <button
+            type="button"
             onClick={presentationWindowOpen ? closePresentationWindow : openPresentationWindow}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
               presentationWindowOpen
                 ? 'bg-red-600 hover:bg-red-700 text-white'
                 : 'bg-primary-600 hover:bg-primary-700 text-white'
             }`}
           >
-            {presentationWindowOpen ? 'Stop Presentatie' : 'Start Presentatie'}
+            {presentationWindowOpen ? t('controller.stopPresentation') : t('controller.startPresentation')}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Slide preview */}
-        <div className="flex-1 flex flex-col p-6">
-          <div className="flex-1 bg-black rounded-xl overflow-hidden flex items-center justify-center relative">
-            {currentSlide?.isVideo ? (
-              <>
-                <video
-                  ref={videoRef}
-                  src={currentSlide.url}
-                  className="max-w-full max-h-full object-contain"
-                  controls
-                  muted={currentSlide.videoMuted ?? true}
-                  onEnded={() => {
-                    console.log('[Controller] Video onEnded triggered')
-                    handleVideoEnded()
-                  }}
-                  onLoadedMetadata={(e) => {
-                    // Zet starttijd bij laden
-                    if (currentSlide.videoStart > 0) {
-                      e.target.currentTime = currentSlide.videoStart
-                    }
-                    e.target.volume = (currentSlide.videoVolume ?? 100) / 100
-                  }}
-                  onTimeUpdate={(e) => {
-                    // Stop bij eindtijd
-                    if (currentSlide.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
-                      e.target.pause()
-                      console.log('[Controller] Video reached end time, triggering handleVideoEnded')
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex min-h-0">
+          {/* Links: timers + hoofddia + bediening */}
+          <div className="flex-1 flex flex-col min-w-0 p-3 gap-2">
+            <div className="flex justify-between items-center text-xs text-slate-500 px-1">
+              <span className="tabular-nums">
+                ⏱ {t('controller.elapsed')}: {formatTime(sessionElapsedTime[currentSessionIndex] || 0)}
+                {getSessionTotalDuration(currentSessionIndex)
+                  ? ` / ${formatTime(getSessionTotalDuration(currentSessionIndex))}`
+                  : ''}
+              </span>
+              <span className="tabular-nums text-slate-400">
+                {wallNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+
+            <div className="flex-1 min-h-0 bg-black rounded-lg overflow-hidden flex items-center justify-center relative border border-slate-800 shadow-inner">
+              {currentSlide?.isVideo ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    src={currentSlide.url}
+                    className="max-w-full max-h-full object-contain"
+                    controls
+                    muted={currentSlide.videoMuted ?? true}
+                    onEnded={() => {
+                      console.log('[Controller] Video onEnded triggered')
                       handleVideoEnded()
+                    }}
+                    onLoadedMetadata={(e) => {
+                      if (currentSlide.videoStart > 0) {
+                        e.target.currentTime = currentSlide.videoStart
+                      }
+                      e.target.volume = (currentSlide.videoVolume ?? 100) / 100
+                    }}
+                    onTimeUpdate={(e) => {
+                      if (currentSlide.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
+                        e.target.pause()
+                        console.log('[Controller] Video reached end time, triggering handleVideoEnded')
+                        handleVideoEnded()
+                      }
+                    }}
+                  />
+                  <div className="absolute top-3 left-3 bg-red-600/95 text-white px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    VIDEO
+                  </div>
+                </>
+              ) : (
+                <img
+                  src={currentSlide?.url}
+                  alt={`Slide ${currentSlideIndex + 1}`}
+                  className="max-w-full max-h-full object-contain"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={resetToStart}
+                  className="p-2.5 bg-red-800 hover:bg-red-700 rounded-lg transition"
+                  title={`${t('controller.resetToStart')} (R)`}
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentSessionIndex > 0) {
+                      const prevSession = sessionSlideRanges[currentSessionIndex - 1]
+                      goToSlide(prevSession.start)
                     }
+                  }}
+                  disabled={currentSessionIndex === 0}
+                  className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-lg transition"
+                  title={`${t('controller.previousSession')} (↑)`}
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToSlide(currentSlideIndex - 1)}
+                  disabled={currentSlideIndex === 0}
+                  className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-lg transition"
+                  title={`${t('controller.previousSlide')} (←)`}
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={togglePlay}
+                  className={`p-3 rounded-full transition ${
+                    isPlaying ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary-600 hover:bg-primary-700'
+                  }`}
+                  title={isPlaying ? `${t('controller.pause')} (Space)` : `${t('controller.play')} (Space)`}
+                >
+                  {isPlaying ? (
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToSlide(currentSlideIndex + 1)}
+                  disabled={currentSlideIndex === slides.length - 1}
+                  className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-lg transition"
+                  title={`${t('controller.nextSlide')} (→)`}
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentSessionIndex < sessionSlideRanges.length - 1) {
+                      const nextSession = sessionSlideRanges[currentSessionIndex + 1]
+                      goToSlide(nextSession.start)
+                    }
+                  }}
+                  disabled={currentSessionIndex === sessionSlideRanges.length - 1}
+                  className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-lg transition"
+                  title={`${t('controller.nextSession')} (↓)`}
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+              <div className="text-[10px] text-slate-500 flex flex-wrap justify-center gap-x-3 gap-y-0.5 max-w-3xl">
+                <span><kbd className="font-mono text-slate-400">Space</kbd> {t('controller.shortcuts.space')}</span>
+                <span><kbd className="font-mono text-slate-400">←→</kbd> {t('controller.shortcuts.arrows')}</span>
+                <span><kbd className="font-mono text-slate-400">↑↓</kbd> {t('controller.shortcuts.upDown')}</span>
+                <span><kbd className="font-mono text-slate-400">R</kbd> {t('controller.shortcuts.reset')}</span>
+              </div>
+              <div className="text-xs text-slate-500">
+                {t('controller.slide')} {currentSlideIndex + 1} {t('controller.of')} {slides.length}
+                {' · '}
+                {t('controller.session')} {currentSessionIndex + 1}/{sessionSlideRanges.length}
+              </div>
+            </div>
+          </div>
+
+          {/* Rechts: volgende dia + notities + muziek + sessies */}
+          <aside className="w-[min(100%,20rem)] sm:w-80 xl:w-[22rem] flex-shrink-0 flex flex-col border-l border-slate-800 bg-[#0f0f0f] min-h-0">
+            <div className="p-3 border-b border-slate-800 flex-shrink-0">
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                {t('controller.nextSlidePreview')}
+              </h2>
+              <div className="aspect-video bg-black rounded-md overflow-hidden flex items-center justify-center border border-slate-800">
+                {nextSlide ? (
+                  nextSlide.isVideo ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-500">
+                      <svg className="w-8 h-8 mb-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      <span className="text-xs">{t('controller.slide')} {currentSlideIndex + 2}</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={nextSlide.url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  )
+                ) : (
+                  <span className="text-xs text-slate-600 px-2 text-center">{t('controller.endOfPresentation')}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-[100px] flex flex-col p-3 border-b border-slate-800 overflow-hidden">
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                {t('controller.notes')}
+              </h2>
+              <div className="flex-1 overflow-y-auto rounded-md bg-amber-950/25 border border-amber-900/30 p-2.5 text-sm text-amber-100/90 leading-relaxed whitespace-pre-wrap">
+                {activeSession?.speakerNotes?.trim()
+                  ? activeSession.speakerNotes
+                  : <span className="text-slate-600 text-xs">—</span>}
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 p-2 border-b border-slate-800 overflow-y-auto max-h-[38vh]">
+              {activeSession && (
+                <MusicPlayer
+                  session={activeSession}
+                  audioTracks={audioTracks}
+                  isCurrentSession
+                  shouldAutoPlay={false}
+                  isPlaying={isPlaying}
+                  shouldLoopAudio={
+                    Boolean(
+                      activeSession.manualDuration > 0 &&
+                        audioDurations[currentSessionIndex] > 0 &&
+                        activeSession.manualDuration > audioDurations[currentSessionIndex]
+                    )
+                  }
+                  onAudioRefChange={(ref) => {
+                    audioRefs.current[currentSessionIndex] = ref
+                  }}
+                  onAudioStateChange={(playing) => {
+                    if (playing) setPlayingAudioSession(currentSessionIndex)
+                    else setPlayingAudioSession(null)
+                  }}
+                  onAudioDuration={(dur) => {
+                    setAudioDurations((prev) => ({ ...prev, [currentSessionIndex]: dur }))
+                  }}
+                  onAudioEnded={() => {
+                    setAudioEnded((prev) => ({ ...prev, [currentSessionIndex]: true }))
                   }}
                 />
-                {/* Video indicator */}
-                <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  VIDEO
-                </div>
-              </>
-            ) : (
-              <img
-                src={currentSlide?.url}
-                alt={`Slide ${currentSlideIndex + 1}`}
-                className="max-w-full max-h-full object-contain"
-              />
-            )}
-          </div>
-
-          {/* Controls */}
-          <div className="flex flex-col items-center justify-center gap-3 mt-4">
-            <div className="flex items-center justify-center gap-4">
-              {/* Reset knop */}
-              <button
-                onClick={resetToStart}
-                className="p-3 bg-red-700 hover:bg-red-600 rounded-lg transition"
-                title={`${t('controller.resetToStart')} (R)`}
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-
-              <button
-                onClick={() => {
-                  if (currentSessionIndex > 0) {
-                    const prevSession = sessionSlideRanges[currentSessionIndex - 1]
-                    goToSlide(prevSession.start)
-                  }
-                }}
-                disabled={currentSessionIndex === 0}
-                className="p-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
-                title={`${t('controller.previousSession')} (↑)`}
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                </svg>
-              </button>
-
-              <button
-                onClick={() => goToSlide(currentSlideIndex - 1)}
-                disabled={currentSlideIndex === 0}
-                className="p-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
-                title={`${t('controller.previousSlide')} (←)`}
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-
-              <button
-                onClick={togglePlay}
-                className={`p-4 rounded-full transition ${
-                  isPlaying 
-                    ? 'bg-amber-600 hover:bg-amber-700' 
-                    : 'bg-primary-600 hover:bg-primary-700'
-                }`}
-                title={isPlaying ? `${t('controller.pause')} (Space)` : `${t('controller.play')} (Space)`}
-              >
-                {isPlaying ? (
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                  </svg>
-                ) : (
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                )}
-              </button>
-
-              <button
-                onClick={() => goToSlide(currentSlideIndex + 1)}
-                disabled={currentSlideIndex === slides.length - 1}
-                className="p-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
-                title={`${t('controller.nextSlide')} (→)`}
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-
-              <button
-                onClick={() => {
-                  if (currentSessionIndex < sessionSlideRanges.length - 1) {
-                    const nextSession = sessionSlideRanges[currentSessionIndex + 1]
-                    goToSlide(nextSession.start)
-                  }
-                }}
-                disabled={currentSessionIndex === sessionSlideRanges.length - 1}
-                className="p-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
-                title={`${t('controller.nextSession')} (↓)`}
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-              </button>
+              )}
             </div>
 
-            {/* Keyboard shortcuts */}
-            <div className="text-xs text-slate-400 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 flex flex-col gap-1">
-              <div className="font-semibold uppercase tracking-wide text-[10px] text-slate-500">
-                ⌨️
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                <span><span className="font-mono text-slate-200">Space</span> – {t('controller.shortcuts.space')}</span>
-                <span><span className="font-mono text-slate-200">← →</span> – {t('controller.shortcuts.arrows')}</span>
-                <span><span className="font-mono text-slate-200">↑ ↓</span> – {t('controller.shortcuts.upDown')}</span>
-                <span><span className="font-mono text-slate-200">R</span> – {t('controller.shortcuts.reset')}</span>
-                <span><span className="font-mono text-slate-200">Esc</span> – {t('controller.shortcuts.escape')}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Slide counter */}
-          <div className="text-center mt-2 text-slate-400">
-            {t('controller.slide')} {currentSlideIndex + 1} {t('controller.of')} {slides.length}
-          </div>
-        </div>
-
-        {/* Sidebar - Sessie gebaseerd */}
-        <div className="w-96 bg-slate-800 border-l border-slate-700 flex flex-col overflow-hidden">
-          {/* Sessies lijst - will-change voor GPU acceleration */}
-          <div className="flex-1 overflow-y-auto" style={{ willChange: 'contents' }}>
-            {sessionSlideRanges.map((range, sessionIdx) => {
-              const session = range.session
-              const isCurrentSession = sessionIdx === currentSessionIndex
-              const sessionSlides = slides.slice(range.start, range.end + 1)
-              const hasAudio = session.audio?.url || session.audio?.file || session.audioTracks?.length > 0
-              const colors = getSessionColors(session)
-              
-              return (
-                <div 
-                  key={`session-${sessionIdx}`}
-                  style={{ contain: 'layout style' }}
-                  className={`border-b border-slate-700 ${isCurrentSession ? colors.bg : ''}`}
-                >
-                  {/* Sessie header */}
-                  <div 
-                    className={`p-3 cursor-pointer transition ${
-                      isCurrentSession 
-                        ? `${colors.bg} border-l-4 ${colors.border}` 
-                        : 'hover:bg-slate-700/30 border-l-4 border-transparent'
-                    }`}
-                    onClick={() => goToSlide(range.start)}
-                  >
-                    <div className="flex items-center justify-between">
+            <div className="flex-shrink-0 p-2 overflow-y-auto min-h-0 max-h-40">
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
+                {t('controller.sessions')}
+              </h2>
+              <div className="flex flex-col gap-1" style={{ willChange: 'contents' }}>
+                {sessionSlideRanges.map((range, sessionIdx) => {
+                  const session = range.session
+                  const isCurrentSession = sessionIdx === currentSessionIndex
+                  const hasAudio = session.audio?.url || session.audio?.file || session.audioTracks?.length > 0
+                  const colors = getSessionColors(session)
+                  return (
+                    <button
+                      type="button"
+                      key={`session-${sessionIdx}`}
+                      onClick={() => goToSlide(range.start)}
+                      className={`text-left rounded-lg px-2 py-1.5 border transition ${
+                        isCurrentSession
+                          ? `${colors.bg} border-l-4 ${colors.border}`
+                          : 'border-transparent hover:bg-slate-800/80'
+                      }`}
+                    >
                       <div className="flex items-center gap-2">
-                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold ${
-                          isCurrentSession ? `${colors.badge} text-white` : 'bg-slate-600 text-slate-300'
-                        }`}>
+                        <span
+                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${
+                            isCurrentSession ? `${colors.badge} text-white` : 'bg-slate-700 text-slate-300'
+                          }`}
+                        >
                           {sessionIdx + 1}
                         </span>
-                        <div>
-                          <span className={`font-medium block ${isCurrentSession ? 'text-white' : 'text-slate-300'}`}>
+                        <div className="min-w-0">
+                          <div className={`text-xs font-medium truncate ${isCurrentSession ? 'text-white' : 'text-slate-400'}`}>
                             {session.name || `${t('controller.session')} ${sessionIdx + 1}`}
-                            <span className="ml-2 text-sm">{colors.icon}</span>
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {sessionSlides.length} {t('controller.slides')} • {session.slideDuration || settings.defaultSlideDuration || 5}{t('controller.secondsPerSlide')}
-                            {session.speakerNotes && ' • 📝'}
-                          </span>
-                          {/* Elapsed time + totale duur voor actieve sessie */}
-                          {isCurrentSession && (
-                            <span className={`text-xs font-mono ${colors.text} block tabular-nums`} style={{ minWidth: '120px' }}>
-                              ⏱ {formatTime(sessionElapsedTime[sessionIdx] || 0)}
-                              {getSessionTotalDuration(sessionIdx) 
-                                ? ` / ${formatTime(getSessionTotalDuration(sessionIdx))}` 
-                                : ''}
-                              {audioDurations[sessionIdx] ? ` 🎵${formatTime(audioDurations[sessionIdx])}` : ''}
-                            </span>
+                            <span className="ml-1">{colors.icon}</span>
+                          </div>
+                          {!isCurrentSession && hasAudio && (
+                            <div className="text-[10px] text-slate-600">🎵 {t('controller.audioAvailable')}</div>
                           )}
                         </div>
                       </div>
-                      {/* Expand indicator */}
-                      <svg 
-                        className={`w-5 h-5 transition-transform ${isCurrentSession ? 'text-primary-400 rotate-180' : 'text-slate-500'}`} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                  
-                  {/* Muziek speler - ALLEEN voor huidige sessie */}
-                  {isCurrentSession && (
-                    <div className="px-3 pb-2">
-                      <MusicPlayer
-                        session={session}
-                        audioTracks={audioTracks}
-                        isCurrentSession={isCurrentSession}
-                        shouldAutoPlay={false}
-                        isPlaying={isPlaying}
-                        // Loop audio als handmatige duur > audio duur
-                        shouldLoopAudio={
-                          session.manualDuration > 0 && 
-                          audioDurations[sessionIdx] > 0 && 
-                          session.manualDuration > audioDurations[sessionIdx]
-                        }
-                        onAudioRefChange={(ref) => {
-                          audioRefs.current[sessionIdx] = ref
-                        }}
-                        onAudioStateChange={(playing) => {
-                          if (playing) {
-                            setPlayingAudioSession(sessionIdx)
-                          } else {
-                            setPlayingAudioSession(null)
-                          }
-                        }}
-                        onAudioDuration={(dur) => {
-                          // Sla audio duur op voor sessie timing
-                          console.log(`[Controller] Audio duration for session ${sessionIdx}:`, dur)
-                          setAudioDurations(prev => ({
-                            ...prev,
-                            [sessionIdx]: dur
-                          }))
-                        }}
-                        onAudioEnded={() => {
-                          // Audio is klaar - markeer voor sessie stop check
-                          console.log(`[Controller] Audio ended for session ${sessionIdx}`)
-                          setAudioEnded(prev => ({
-                            ...prev,
-                            [sessionIdx]: true
-                          }))
-                        }}
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Collapsed audio indicator voor niet-actieve sessies */}
-                  {!isCurrentSession && hasAudio && (
-                    <div className="px-3 pb-2">
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>🎵 Audio beschikbaar</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Spreker notities (alleen voor huidige sessie) */}
-                  {isCurrentSession && session.speakerNotes && (
-                    <div className="px-3 pb-2">
-                      <div className="bg-amber-900/20 border border-amber-700/30 rounded-lg p-2">
-                        <div className="flex items-center gap-1 text-xs text-amber-400 mb-1">
-                          <span>📝</span> Spreker notities
-                        </div>
-                        <p className="text-xs text-amber-200/80 whitespace-pre-wrap">{session.speakerNotes}</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Slides van deze sessie (alleen tonen als huidige sessie) */}
-                  {isCurrentSession && (
-                    <div className="px-3 pb-3">
-                      <div className="grid grid-cols-4 gap-1">
-                        {sessionSlides.map((slide, localIdx) => {
-                          const globalIdx = range.start + localIdx
-                          return (
-                            <button
-                              key={globalIdx}
-                              onClick={() => goToSlide(globalIdx)}
-                              className={`aspect-video rounded overflow-hidden border-2 transition ${
-                                globalIdx === currentSlideIndex
-                                  ? 'border-primary-400 ring-2 ring-primary-400/50'
-                                  : 'border-transparent hover:border-slate-500'
-                              }`}
-                            >
-                              {slide.isVideo ? (
-                                <div className="w-full h-full bg-slate-700 flex items-center justify-center">
-                                  <svg className="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M8 5v14l11-7z" />
-                                  </svg>
-                                </div>
-                              ) : (
-                                <img
-                                  src={slide.url}
-                                  alt={`Slide ${globalIdx + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              )}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          
-          {/* Footer met totaal overzicht */}
-          <div className="p-3 bg-slate-900 border-t border-slate-700">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-300 font-medium">
-                {t('controller.session')} {currentSessionIndex + 1} / {sessionSlideRanges.length}
-              </span>
-              <span className="text-slate-400">
-                {t('controller.slide')} {currentSlideIndex + 1} / {slides.length}
-              </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          </aside>
+        </div>
+
+        {/* Filmstrook — alle dia's */}
+        <div
+          className="flex-shrink-0 h-[5.5rem] border-t border-slate-800 bg-black/40 flex items-stretch gap-1.5 px-2 py-1.5 overflow-x-auto"
+          style={{ willChange: 'scroll-position' }}
+        >
+          <span className="text-[10px] text-slate-600 uppercase tracking-wide self-center pr-1 shrink-0 hidden sm:inline">
+            {t('controller.allSlides')}
+          </span>
+          {slides.map((slide, idx) => (
+            <button
+              type="button"
+              key={idx}
+              onClick={() => goToSlide(idx)}
+              className={`h-full aspect-video shrink-0 rounded overflow-hidden border-2 transition ${
+                idx === currentSlideIndex
+                  ? 'border-primary-500 ring-2 ring-primary-500/40 scale-[1.02]'
+                  : 'border-slate-800 hover:border-slate-600 opacity-80 hover:opacity-100'
+              }`}
+            >
+              {slide.isVideo ? (
+                <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              ) : (
+                <img src={slide.url} alt="" className="w-full h-full object-cover" />
+              )}
+            </button>
+          ))}
         </div>
       </div>
     </div>
   )
+
 }

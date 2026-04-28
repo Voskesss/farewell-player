@@ -59,7 +59,18 @@ export const nl = {
     // Display selection
     selectDisplay: 'Selecteer scherm',
     startPresentation: 'Start presentatie',
+    stopPresentation: 'Stop presentatie',
     presentationActive: 'Presentatie actief',
+    primaryDisplay: 'Primair',
+    externalDisplay: 'Extern',
+
+    // Presentatorweergave (v3)
+    elapsed: 'Verstreken',
+    nextSlidePreview: 'Volgende dia',
+    notes: 'Notities',
+    sessions: 'Sessies',
+    endOfPresentation: 'Einde van de presentatie',
+    allSlides: 'Alle dia\'s',
   },
 
   // Music Player

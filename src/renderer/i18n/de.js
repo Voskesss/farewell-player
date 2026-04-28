@@ -59,7 +59,18 @@ export const de = {
     // Display selection
     selectDisplay: 'Bildschirm auswählen',
     startPresentation: 'Präsentation starten',
+    stopPresentation: 'Präsentation beenden',
     presentationActive: 'Präsentation aktiv',
+    primaryDisplay: 'Primär',
+    externalDisplay: 'Extern',
+
+    // Presentatoransicht (v3)
+    elapsed: 'Verstrichen',
+    nextSlidePreview: 'Nächste Folie',
+    notes: 'Notizen',
+    sessions: 'Abschnitte',
+    endOfPresentation: 'Ende der Präsentation',
+    allSlides: 'Alle Folien',
   },
 
   // Music Player

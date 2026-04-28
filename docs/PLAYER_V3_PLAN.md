@@ -20,12 +20,12 @@ Richting van de gewenste UI (zoals je screenshot):
 
 | Onderdeel | Status | Opmerking |
 |-----------|--------|-----------|
-| Grote huidige slide (bediening) | Deels | Nu preview + sidebar; layout herschikken |
-| Volgende slide-preview | Nog | Index `currentSlideIndex + 1` |
-| Notities-paneel | Deels | Manifest heeft nu vooral **`speakerNotes` per sessie**; per-dia-notities alleen als export die later toevoegt |
-| Filmstrook onderaan | Nog | Thumbnails van alle slides, huidige gemarkeerd |
-| Timer (verstreken / klok) | Nog | Optioneel |
-| Schermen wisselen | Deels | Display-keuze bestaat al in Controller |
+| Grote huidige slide (bediening) | **Ja (v3 UI)** | Donkere presenter-layout, hoofdpreview links |
+| Volgende slide-preview | **Ja** | Rechterkolom, `currentSlideIndex + 1` |
+| Notities-paneel | **Ja (sessie)** | `speakerNotes` van actieve sessie; per-dia later mogelijk |
+| Filmstrook onderaan | **Ja** | Horizontale thumbnails, klik = springen |
+| Timer (verstreken / klok) | **Deels** | Verstreken + totaal per sessie + wandklok |
+| Schermen wisselen | Deels | Display-keuze in topbar (zoals eerder) |
 
 Implementatie in **fases** (niets “overboord”):
 
