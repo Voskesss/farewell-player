@@ -74,6 +74,8 @@ export const nl = {
     allSlides: 'Alle dia\'s',
     nextWithinTimeBlock: 'Nog in dit tijdblok',
     nextNewTimeBlock: 'Volgend tijdblok: {name}',
+    remoteHint:
+      'Afstandsbediening: werkt op het presentatievenster (beamerscherm). PageDown, Enter, punt of pijl rechts/omlaag = volgende dia; PageUp, komma of pijl links/omhoog = vorige; spatie of mediatoets play/pauze. Zonder remote: klik het presentatievenster actief en test met die toetsen. Toewijzing in de app zelf instellen kan (nog) niet; veel clickers kun je bij de fabrikant op PageDown/PageUp zetten.',
   },
 
   // Music Player

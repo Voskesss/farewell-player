@@ -74,6 +74,8 @@ export const en = {
     allSlides: 'All slides',
     nextWithinTimeBlock: 'Still in this time block',
     nextNewTimeBlock: 'Next time block: {name}',
+    remoteHint:
+      'Remote: works on the presentation window (projector screen). Page Down, Enter, period, or arrow right/down = next slide; Page Up, comma, or arrow left/up = previous; Space or media play/pause toggles play/pause. Without a remote: focus that window and try those keys. In-app remapping is not available yet; many clickers can be set to Page Down/Page Up in the vendor software.',
   },
 
   // Music Player

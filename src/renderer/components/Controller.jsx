@@ -621,13 +621,22 @@ export default function Controller({
           console.log('[Controller] Video ended, advancing to next slide')
           handleVideoEnded()
           break
+        case 'remoteNextSlide':
+          goToSlide(currentSlideIndex + 1)
+          break
+        case 'remotePrevSlide':
+          goToSlide(currentSlideIndex - 1)
+          break
+        case 'remotePlayPause':
+          setIsPlaying((p) => !p)
+          break
       }
     })
 
     return () => {
       window.electronAPI?.removeControllerCommandListener()
     }
-  }, [handleVideoEnded])
+  }, [handleVideoEnded, goToSlide, currentSlideIndex, setIsPlaying])
 
   const openPresentationWindow = async () => {
     if (window.electronAPI) {
@@ -984,6 +993,11 @@ export default function Controller({
                 <span><kbd className="font-mono text-slate-400">↑↓</kbd> {t('controller.shortcuts.upDown')}</span>
                 <span><kbd className="font-mono text-slate-400">R</kbd> {t('controller.shortcuts.reset')}</span>
               </div>
+              {presentationWindowOpen && (
+                <p className="text-[10px] text-slate-600 text-center max-w-2xl leading-snug px-2">
+                  {t('controller.remoteHint')}
+                </p>
+              )}
               <div className="text-xs text-slate-500">
                 {t('controller.slide')} {currentSlideIndex + 1} {t('controller.of')} {slides.length}
                 {' · '}

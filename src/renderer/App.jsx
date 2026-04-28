@@ -63,6 +63,60 @@ function AppContent() {
     }
   }, [isPresentationMode, presentation])
 
+  // Afstandsbediening / toetsenbord: keys op het presentatievenster gaan naar de controller
+  // (veel clickers sturen PageDown/PageUp of pijltjes; zonder dit bereikt de key alleen dit venster)
+  useEffect(() => {
+    if (!isPresentationMode || !window.electronAPI) return
+
+    const forward = (command) => {
+      window.electronAPI.sendToController(command, {}).catch(() => {})
+    }
+
+    const onKeyDown = (e) => {
+      switch (e.code) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+        case 'PageDown':
+          e.preventDefault()
+          forward('remoteNextSlide')
+          break
+        case 'ArrowLeft':
+        case 'ArrowUp':
+        case 'PageUp':
+          e.preventDefault()
+          forward('remotePrevSlide')
+          break
+        case 'Space':
+          e.preventDefault()
+          forward('remotePlayPause')
+          break
+        case 'Period':
+        case 'NumpadDecimal':
+          e.preventDefault()
+          forward('remoteNextSlide')
+          break
+        case 'Comma':
+          e.preventDefault()
+          forward('remotePrevSlide')
+          break
+        case 'Enter':
+        case 'NumpadEnter':
+          e.preventDefault()
+          forward('remoteNextSlide')
+          break
+        case 'MediaPlayPause':
+          e.preventDefault()
+          forward('remotePlayPause')
+          break
+        default:
+          break
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isPresentationMode])
+
   // Bestand laden
   const handleFileLoad = async (filePath) => {
     try {

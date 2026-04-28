@@ -74,6 +74,8 @@ export const de = {
     allSlides: 'Alle Folien',
     nextWithinTimeBlock: 'Noch in diesem Zeitblock',
     nextNewTimeBlock: 'Nächster Zeitblock: {name}',
+    remoteHint:
+      'Fernbedienung: gilt für das Präsentationsfenster (Beamer). Page Down, Enter, Punkt oder Pfeil rechts/unten = nächste Folie; Page Up, Komma oder Pfeil links/oben = vorherige; Leertaste oder Media Play/Pause = Play/Pause. Ohne Fernbedienung: Fenster fokussieren und diese Tasten testen. Umlegen in der App (noch) nicht möglich; viele Presenter können in der Hersteller-Software auf Page Down/Page Up gestellt werden.',
   },
 
   // Music Player
