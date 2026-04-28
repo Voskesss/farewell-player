@@ -310,18 +310,23 @@ export default function Controller({
           break
         case 'ArrowUp':
           e.preventDefault()
-          // Ga naar vorige sessie
-          if (currentSessionIndex > 0) {
-            const prevSession = sessionSlideRanges[currentSessionIndex - 1]
-            goToSlide(prevSession.start)
+          // Sessie altijd afleiden van slide — currentSessionIndex loopt 1 tick achter na ←/→
+          {
+            const si = getSessionIndexForSlide(currentSlideIndex)
+            if (si > 0) {
+              const prevSession = sessionSlideRanges[si - 1]
+              goToSlide(prevSession.start)
+            }
           }
           break
         case 'ArrowDown':
           e.preventDefault()
-          // Ga naar volgende sessie
-          if (currentSessionIndex < sessionSlideRanges.length - 1) {
-            const nextSession = sessionSlideRanges[currentSessionIndex + 1]
-            goToSlide(nextSession.start)
+          {
+            const si = getSessionIndexForSlide(currentSlideIndex)
+            if (si < sessionSlideRanges.length - 1) {
+              const nextSession = sessionSlideRanges[si + 1]
+              goToSlide(nextSession.start)
+            }
           }
           break
         case 'Escape':
@@ -337,7 +342,7 @@ export default function Controller({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentSlideIndex, slides.length])
+  }, [currentSlideIndex, slides.length, sessionSlideRanges, getSessionIndexForSlide])
 
   // Haal slide duration (in ms): manifest per-slide `duration` wint, anders sessie/default (FAREWELL_PLAYER_MANIFEST.md §4)
   const getCurrentSlideDuration = useCallback(() => {
@@ -692,7 +697,9 @@ export default function Controller({
 
   const currentSlide = slides[currentSlideIndex]
   const nextSlide = currentSlideIndex + 1 < slides.length ? slides[currentSlideIndex + 1] : null
-  const activeRange = sessionSlideRanges[currentSessionIndex]
+  // UI volgt altijd de slide — currentSessionIndex kan één render achterlopen
+  const uiSessionIndex = getSessionIndexForSlide(currentSlideIndex)
+  const activeRange = sessionSlideRanges[uiSessionIndex]
   const activeSession = activeRange?.session
 
   return (
@@ -871,12 +878,12 @@ export default function Controller({
                 <button
                   type="button"
                   onClick={() => {
-                    if (currentSessionIndex > 0) {
-                      const prevSession = sessionSlideRanges[currentSessionIndex - 1]
-                      goToSlide(prevSession.start)
+                    const si = getSessionIndexForSlide(currentSlideIndex)
+                    if (si > 0) {
+                      goToSlide(sessionSlideRanges[si - 1].start)
                     }
                   }}
-                  disabled={currentSessionIndex === 0}
+                  disabled={getSessionIndexForSlide(currentSlideIndex) === 0}
                   className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-lg transition"
                   title={`${t('controller.previousSession')} (↑)`}
                 >
@@ -927,12 +934,12 @@ export default function Controller({
                 <button
                   type="button"
                   onClick={() => {
-                    if (currentSessionIndex < sessionSlideRanges.length - 1) {
-                      const nextSession = sessionSlideRanges[currentSessionIndex + 1]
-                      goToSlide(nextSession.start)
+                    const si = getSessionIndexForSlide(currentSlideIndex)
+                    if (si < sessionSlideRanges.length - 1) {
+                      goToSlide(sessionSlideRanges[si + 1].start)
                     }
                   }}
-                  disabled={currentSessionIndex === sessionSlideRanges.length - 1}
+                  disabled={getSessionIndexForSlide(currentSlideIndex) === sessionSlideRanges.length - 1}
                   className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-lg transition"
                   title={`${t('controller.nextSession')} (↓)`}
                 >
@@ -950,7 +957,7 @@ export default function Controller({
               <div className="text-xs text-slate-500">
                 {t('controller.slide')} {currentSlideIndex + 1} {t('controller.of')} {slides.length}
                 {' · '}
-                {t('controller.session')} {currentSessionIndex + 1}/{sessionSlideRanges.length}
+                {t('controller.session')} {uiSessionIndex + 1}/{sessionSlideRanges.length}
               </div>
             </div>
           </div>
@@ -962,7 +969,7 @@ export default function Controller({
             <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2 space-y-2">
               {sessionSlideRanges.map((range, sessionIdx) => {
                 const session = range.session
-                const isCurrentSession = sessionIdx === currentSessionIndex
+                const isCurrentSession = sessionIdx === uiSessionIndex
                 const hasAudio = session.audio?.url || session.audio?.file || session.audioTracks?.length > 0
                 const colors = getSessionBlockColors(session, sessionIdx)
                 const slideCount = range.end - range.start + 1
@@ -971,10 +978,10 @@ export default function Controller({
                     type="button"
                     key={`session-${sessionIdx}`}
                     onClick={() => goToSlide(range.start)}
-                    className={`w-full text-left rounded-lg p-3 border transition ${
+                    className={`w-full text-left rounded-lg p-3 transition ${
                       isCurrentSession
-                        ? `${colors.bg} border-l-4 ${colors.border} ring-1 ring-white/10`
-                        : `border-slate-800 border-l-4 ${colors.border} bg-slate-900/50 hover:bg-slate-800/80`
+                        ? `${colors.bg} border border-slate-600/50 border-l-4 ${colors.border} ring-1 ring-white/10`
+                        : 'border border-slate-800 bg-slate-900/50 hover:bg-slate-800/80'
                     }`}
                   >
                     <div className="flex items-start gap-2">
@@ -1009,6 +1016,7 @@ export default function Controller({
             <div className="shrink-0 border-t border-slate-800 p-2 max-h-[40vh] overflow-y-auto">
               {activeSession && (
                 <MusicPlayer
+                  key={`music-${uiSessionIndex}`}
                   session={activeSession}
                   audioTracks={audioTracks}
                   isCurrentSession
@@ -1017,22 +1025,22 @@ export default function Controller({
                   shouldLoopAudio={
                     Boolean(
                       activeSession.manualDuration > 0 &&
-                        audioDurations[currentSessionIndex] > 0 &&
-                        activeSession.manualDuration > audioDurations[currentSessionIndex]
+                        audioDurations[uiSessionIndex] > 0 &&
+                        activeSession.manualDuration > audioDurations[uiSessionIndex]
                     )
                   }
                   onAudioRefChange={(ref) => {
-                    audioRefs.current[currentSessionIndex] = ref
+                    audioRefs.current[uiSessionIndex] = ref
                   }}
                   onAudioStateChange={(playing) => {
-                    if (playing) setPlayingAudioSession(currentSessionIndex)
+                    if (playing) setPlayingAudioSession(uiSessionIndex)
                     else setPlayingAudioSession(null)
                   }}
                   onAudioDuration={(dur) => {
-                    setAudioDurations((prev) => ({ ...prev, [currentSessionIndex]: dur }))
+                    setAudioDurations((prev) => ({ ...prev, [uiSessionIndex]: dur }))
                   }}
                   onAudioEnded={() => {
-                    setAudioEnded((prev) => ({ ...prev, [currentSessionIndex]: true }))
+                    setAudioEnded((prev) => ({ ...prev, [uiSessionIndex]: true }))
                   }}
                 />
               )}
