@@ -28,6 +28,7 @@ export const en = {
     nextSlide: 'Next slide',
     nextSession: 'Next session',
     closePresentation: 'Close presentation',
+    exitToHome: 'Back to start',
     
     // Keyboard shortcuts
     shortcuts: {
