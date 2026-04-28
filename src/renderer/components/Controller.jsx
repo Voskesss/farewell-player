@@ -521,20 +521,18 @@ export default function Controller({
     const isLastSlideInSession = currentSlideIndex === currentRange?.end
     const session = currentRange?.session
     const sessionHasLoop = session?.loop || session?.loopMode
-    const audioElement = audioRefs.current[currentSessionIndex]
-    const audioStillPlaying = audioElement && !audioElement.paused && !audioElement.ended
     
     console.log('[Controller] Video ended:', {
       currentSlide: currentSlideIndex,
       isLastInSession: isLastSlideInSession,
-      sessionHasLoop,
-      audioStillPlaying
+      sessionHasLoop
     })
     
-    // Als laatste slide in sessie EN sessie heeft loop OF audio speelt nog
-    if (isLastSlideInSession && (sessionHasLoop || audioStillPlaying)) {
+    // Video's loopen ALLEEN als sessie expliciet loop mode heeft
+    // NIET als alleen audio nog speelt - audio volgt video, niet andersom
+    if (isLastSlideInSession && sessionHasLoop) {
       // Loop terug naar begin van sessie
-      console.log('[Controller] Video ended - looping back to session start:', currentRange.start)
+      console.log('[Controller] Video ended - looping back to session start (loop mode):', currentRange.start)
       goToSlide(currentRange.start)
       return
     }
@@ -548,7 +546,7 @@ export default function Controller({
       console.log('[Controller] Video ended - end of presentation')
       setIsPlaying(false)
     }
-  }, [isPlaying, currentSlideIndex, slides.length, goToSlide, setIsPlaying, sessionSlideRanges, currentSessionIndex, audioRefs])
+  }, [isPlaying, currentSlideIndex, slides.length, goToSlide, setIsPlaying, sessionSlideRanges, currentSessionIndex])
 
   // Luister naar commando's van presentatie venster (bijv. video ended)
   useEffect(() => {

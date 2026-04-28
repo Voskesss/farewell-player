@@ -60,6 +60,18 @@ export async function loadFarewellFile(filePath) {
       // Haal video trim settings uit manifest
       const info = slideInfoMap[path] || {}
       
+      // Bepaal video audio: gebruik videoAudioEnabled als beschikbaar, anders videoMuted
+      // videoAudioEnabled = true betekent geluid AAN (nieuw format)
+      // videoMuted = false betekent geluid AAN (oud format)
+      let videoMuted = true  // default: muted
+      if (info.videoAudioEnabled !== undefined) {
+        // Nieuw format: videoAudioEnabled = true -> muted = false
+        videoMuted = !info.videoAudioEnabled
+      } else if (info.videoMuted !== undefined) {
+        // Oud format: gebruik direct
+        videoMuted = info.videoMuted
+      }
+      
       slides.push({
         path,
         url,
@@ -68,7 +80,7 @@ export async function loadFarewellFile(filePath) {
         // Video trim settings
         videoStart: info.videoStart || 0,
         videoEnd: info.videoEnd || null,
-        videoMuted: info.videoMuted ?? true,
+        videoMuted: videoMuted,
         videoVolume: info.videoVolume ?? 100,
         musicDucking: info.musicDucking || false
       })
