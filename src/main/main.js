@@ -52,6 +52,11 @@ function createControllerWindow() {
   })
 }
 
+/**
+ * Publieksscherm (PowerPoint-achtig): tweede venster, bij voorkeur op een **externe** monitor,
+ * fullscreen zonder kader. Bediening blijft op het controller-venster (primary / gekozen scherm).
+ * Zie docs/PLAYER_V3_PLAN.md
+ */
 function createPresentationWindow(displayId = null) {
   // Vind het externe scherm (of gebruik primaire als geen extern)
   const displays = screen.getAllDisplays()

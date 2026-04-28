@@ -67,6 +67,10 @@ function AppContent() {
   const handleFileLoad = async (filePath) => {
     try {
       const data = await loadFarewellFile(filePath)
+      if (data.manifestCompatibilityWarning) {
+        console.warn('[App]', data.manifestCompatibilityWarning)
+        alert(data.manifestCompatibilityWarning)
+      }
       setPresentation(data)
       setCurrentSlideIndex(0)
       

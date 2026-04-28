@@ -72,14 +72,20 @@ export async function loadFarewellFile(filePath) {
         videoMuted = info.videoMuted
       }
       
+      // isVideo: manifest mag expliciet zetten; anders extensie (FAREWELL_PLAYER_MANIFEST.md §4)
+      const isVideoFromManifest = typeof info.isVideo === 'boolean' ? info.isVideo : isVideo
+
       slides.push({
         path,
         url,
-        isVideo,
-        type: isVideo ? 'video' : 'image',
+        isVideo: isVideoFromManifest,
+        type: isVideoFromManifest ? 'video' : 'image',
+        pauseHere: info.pauseHere,
+        duration: typeof info.duration === 'number' ? info.duration : undefined,
         // Video trim settings
         videoStart: info.videoStart || 0,
         videoEnd: info.videoEnd || null,
+        videoDuration: info.videoDuration ?? null,
         videoMuted: videoMuted,
         videoVolume: info.videoVolume ?? 100,
         musicDucking: info.musicDucking || false
@@ -176,8 +182,15 @@ export async function loadFarewellFile(filePath) {
     thumbnailUrl = URL.createObjectURL(blob)
   }
   
+  const manifestVersionStr = manifest.version != null ? String(manifest.version) : '1.0'
+  const manifestCompatibilityWarning =
+    /^1\./.test(manifestVersionStr)
+      ? null
+      : `Dit .farewell-bestand meldt manifest-versie "${manifestVersionStr}". Deze player is getest voor 1.x. Controleer of alles correct afspeelt.`
+
   return {
     manifest,
+    manifestCompatibilityWarning,
     slides,
     audioTracks,
     thumbnailUrl,

@@ -295,12 +295,16 @@ export default function Controller({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [currentSlideIndex, slides.length])
 
-  // Haal slide duration voor huidige sessie (in ms)
+  // Haal slide duration (in ms): manifest per-slide `duration` wint, anders sessie/default (FAREWELL_PLAYER_MANIFEST.md §4)
   const getCurrentSlideDuration = useCallback(() => {
+    const slide = slides[currentSlideIndex]
+    if (slide && typeof slide.duration === 'number' && slide.duration > 0) {
+      return slide.duration * 1000
+    }
     const currentRange = sessionSlideRanges[currentSessionIndex]
     const sessionDuration = currentRange?.session?.slideDuration
     return (sessionDuration || settings.defaultSlideDuration || 5) * 1000
-  }, [currentSessionIndex, sessionSlideRanges, settings.defaultSlideDuration])
+  }, [currentSlideIndex, slides, currentSessionIndex, sessionSlideRanges, settings.defaultSlideDuration])
 
   // CENTRALE LOGICA: Bereken totale sessie duur
   // Prioriteit: handmatige duur > audio duur > (slides * slideDuration)
