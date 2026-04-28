@@ -69,6 +69,7 @@ export const en = {
     nextSlidePreview: 'Next slide',
     notes: 'Notes',
     sessions: 'Sections',
+    timeBlocks: 'Time blocks',
     endOfPresentation: 'End of presentation',
     allSlides: 'All slides',
   },

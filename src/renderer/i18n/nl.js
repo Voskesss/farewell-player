@@ -69,6 +69,7 @@ export const nl = {
     nextSlidePreview: 'Volgende dia',
     notes: 'Notities',
     sessions: 'Sessies',
+    timeBlocks: 'Tijdblokken',
     endOfPresentation: 'Einde van de presentatie',
     allSlides: 'Alle dia\'s',
   },

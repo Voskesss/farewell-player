@@ -41,6 +41,7 @@ export default function Controller({
         bg: 'bg-emerald-500/20',
         text: 'text-emerald-300',
         badge: 'bg-emerald-500',
+        bottomAccent: 'bg-emerald-500',
         icon: '🔄'
       }
     }
@@ -50,6 +51,7 @@ export default function Controller({
         bg: 'bg-violet-500/20',
         text: 'text-violet-300',
         badge: 'bg-violet-500',
+        bottomAccent: 'bg-violet-500',
         icon: '🎤'
       }
     }
@@ -58,9 +60,34 @@ export default function Controller({
       bg: 'bg-blue-500/20',
       text: 'text-blue-300',
       badge: 'bg-blue-500',
+      bottomAccent: 'bg-blue-500',
       icon: '🎵'
     }
   }
+
+  /** Unieke rand/vulkleur per tijdblok (volgorde); icoon blijft uit getSessionColors */
+  const BLOCK_PALETTE = useMemo(
+    () => [
+      { border: 'border-sky-400', bottomAccent: 'bg-sky-600', badge: 'bg-sky-600', bg: 'bg-sky-500/15', text: 'text-sky-200' },
+      { border: 'border-teal-400', bottomAccent: 'bg-teal-600', badge: 'bg-teal-600', bg: 'bg-teal-500/15', text: 'text-teal-200' },
+      { border: 'border-amber-400', bottomAccent: 'bg-amber-600', badge: 'bg-amber-600', bg: 'bg-amber-500/15', text: 'text-amber-200' },
+      { border: 'border-rose-400', bottomAccent: 'bg-rose-600', badge: 'bg-rose-600', bg: 'bg-rose-500/15', text: 'text-rose-200' },
+      { border: 'border-indigo-400', bottomAccent: 'bg-indigo-600', badge: 'bg-indigo-600', bg: 'bg-indigo-500/15', text: 'text-indigo-200' },
+      { border: 'border-cyan-400', bottomAccent: 'bg-cyan-600', badge: 'bg-cyan-600', bg: 'bg-cyan-500/15', text: 'text-cyan-200' },
+      { border: 'border-fuchsia-400', bottomAccent: 'bg-fuchsia-600', badge: 'bg-fuchsia-600', bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-200' },
+      { border: 'border-lime-400', bottomAccent: 'bg-lime-600', badge: 'bg-lime-600', bg: 'bg-lime-500/15', text: 'text-lime-200' }
+    ],
+    []
+  )
+
+  const getSessionBlockColors = useCallback(
+    (session, sessionIndex) => {
+      const base = getSessionColors(session)
+      const p = BLOCK_PALETTE[sessionIndex % BLOCK_PALETTE.length]
+      return { ...base, ...p }
+    },
+    [BLOCK_PALETTE]
+  )
 
   // Reset alles naar begin
   const resetToStart = useCallback(() => {
@@ -128,6 +155,17 @@ export default function Controller({
       return range
     })
   }, [sessions, slides])
+
+  const getSessionIndexForSlide = useCallback(
+    (slideIndex) => {
+      for (let i = 0; i < sessionSlideRanges.length; i++) {
+        const r = sessionSlideRanges[i]
+        if (slideIndex >= r.start && slideIndex <= r.end) return i
+      }
+      return 0
+    },
+    [sessionSlideRanges]
+  )
 
   // Bepaal huidige sessie op basis van slide index
   const getCurrentSessionFromSlide = useCallback((slideIndex) => {
@@ -701,70 +739,106 @@ export default function Controller({
       </header>
 
       <div className="flex-1 flex flex-col min-h-0">
-        {/* Boven: ~60% huidige dia / ~40% volgende + notities (PowerPoint-verhouding) */}
+        {/* Midden: huidige + volgende dia naast elkaar | rechts: alle tijdblokken + muziek */}
         <div className="flex-1 flex min-h-0">
-          {/* Links: huidige dia */}
-          <div className="flex-[3] min-w-0 flex flex-col p-3 pt-2 gap-2">
-            <div className="flex items-center gap-2 text-xs text-slate-400 px-1">
+          <div className="flex-1 min-w-0 flex flex-col p-3 pt-2 gap-2">
+            <div className="flex items-center justify-between text-xs text-slate-400 px-1 shrink-0">
               <span className="tabular-nums font-medium text-slate-300">
                 ⏱ {t('controller.elapsed')}: {formatTime(sessionElapsedTime[currentSessionIndex] || 0)}
                 {getSessionTotalDuration(currentSessionIndex)
                   ? ` / ${formatTime(getSessionTotalDuration(currentSessionIndex))}`
                   : ''}
               </span>
+              <span className="tabular-nums font-medium text-slate-300">
+                {wallNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
 
-            <div className="flex-1 min-h-0 bg-black rounded-lg overflow-hidden flex items-center justify-center relative border border-slate-700/80 shadow-inner">
-              {currentSlide?.isVideo ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    src={currentSlide.url}
-                    className="max-w-full max-h-full object-contain"
-                    controls={!presentationWindowOpen}
-                    muted={
-                      presentationWindowOpen ? true : (currentSlide.videoMuted ?? true)
-                    }
-                    onEnded={() => {
-                      console.log('[Controller] Video onEnded triggered')
-                      handleVideoEnded()
-                    }}
-                    onLoadedMetadata={(e) => {
-                      if (currentSlide.videoStart > 0) {
-                        e.target.currentTime = currentSlide.videoStart
-                      }
-                      if (presentationWindowOpen) {
-                        e.target.muted = true
-                        e.target.volume = 0
-                      } else {
-                        e.target.volume = (currentSlide.videoVolume ?? 100) / 100
-                      }
-                    }}
-                    onTimeUpdate={(e) => {
-                      if (currentSlide.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
-                        e.target.pause()
-                        console.log('[Controller] Video reached end time, triggering handleVideoEnded')
-                        handleVideoEnded()
-                      }
-                    }}
-                  />
-                  <div className="absolute top-3 left-3 bg-red-600/95 text-white px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    VIDEO
-                  </div>
-                </>
-              ) : (
-                <img
-                  src={currentSlide?.url}
-                  alt={`Slide ${currentSlideIndex + 1}`}
-                  className="max-w-full max-h-full object-contain"
-                />
-              )}
+            <div className="flex-1 min-h-0 flex gap-3 lg:gap-4">
+              <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+                <div className="flex-1 min-h-0 bg-black rounded-lg overflow-hidden flex items-center justify-center relative border border-slate-700/80 shadow-inner">
+                  {currentSlide?.isVideo ? (
+                    <>
+                      <video
+                        ref={videoRef}
+                        src={currentSlide.url}
+                        className="max-w-full max-h-full object-contain"
+                        controls={!presentationWindowOpen}
+                        muted={
+                          presentationWindowOpen ? true : (currentSlide.videoMuted ?? true)
+                        }
+                        onEnded={() => {
+                          console.log('[Controller] Video onEnded triggered')
+                          handleVideoEnded()
+                        }}
+                        onLoadedMetadata={(e) => {
+                          if (currentSlide.videoStart > 0) {
+                            e.target.currentTime = currentSlide.videoStart
+                          }
+                          if (presentationWindowOpen) {
+                            e.target.muted = true
+                            e.target.volume = 0
+                          } else {
+                            e.target.volume = (currentSlide.videoVolume ?? 100) / 100
+                          }
+                        }}
+                        onTimeUpdate={(e) => {
+                          if (currentSlide.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
+                            e.target.pause()
+                            console.log('[Controller] Video reached end time, triggering handleVideoEnded')
+                            handleVideoEnded()
+                          }
+                        }}
+                      />
+                      <div className="absolute top-3 left-3 bg-red-600/95 text-white px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        VIDEO
+                      </div>
+                    </>
+                  ) : (
+                    <img
+                      src={currentSlide?.url}
+                      alt={`Slide ${currentSlideIndex + 1}`}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="w-[30%] min-w-[10.5rem] max-w-xs lg:max-w-sm shrink-0 flex flex-col gap-2 min-h-0">
+                <h2 className="text-sm font-normal text-slate-200 shrink-0">
+                  {t('controller.nextSlidePreview')}
+                </h2>
+                <div className="flex-1 min-h-0 min-w-0 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-slate-700 shadow-md">
+                  {nextSlide ? (
+                    nextSlide.isVideo ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400 p-2">
+                        <svg className="w-10 h-10 mb-1 opacity-80 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        <span className="text-xs text-center">{t('controller.slide')} {currentSlideIndex + 2}</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={nextSlide.url}
+                        alt=""
+                        className="w-full h-full object-contain"
+                      />
+                    )
+                  ) : (
+                    <span className="text-xs text-slate-500 px-2 text-center">{t('controller.endOfPresentation')}</span>
+                  )}
+                </div>
+                {nextSlide && (
+                  <p className="text-center text-xs text-slate-500 shrink-0">
+                    {t('controller.slide')} {currentSlideIndex + 2} {t('controller.of')} {slides.length}
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Voortgang (PowerPoint-achtig) */}
             <div className="shrink-0 px-0.5">
               <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
                 <span>
@@ -880,56 +954,58 @@ export default function Controller({
             </div>
           </div>
 
-          {/* Rechts: volgende dia + notities + muziek + sessies */}
-          <aside className="flex-[2] min-w-0 sm:min-w-[19rem] max-w-xl flex-shrink-0 flex flex-col border-l border-slate-800 bg-[#0c0c0c] min-h-0">
-            <div className="flex justify-end items-center px-3 pt-2 pb-1 shrink-0">
-              <span className="tabular-nums text-sm text-slate-300 font-medium">
-                {wallNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-            <div className="px-3 pb-3 border-b border-slate-800 flex-shrink-0">
-              <h2 className="text-sm font-normal text-slate-200 mb-2 tracking-tight">
-                {t('controller.nextSlidePreview')}
-              </h2>
-              <div className="aspect-video bg-black rounded-md overflow-hidden flex items-center justify-center border border-slate-700 shadow-md">
-                {nextSlide ? (
-                  nextSlide.isVideo ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400">
-                      <svg className="w-12 h-12 mb-2 opacity-80" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                      <span className="text-sm">{t('controller.slide')} {currentSlideIndex + 2}</span>
+          <aside className="w-72 xl:w-80 flex-shrink-0 flex flex-col border-l border-slate-800 bg-[#0c0c0c] min-h-0">
+            <h2 className="text-sm font-medium text-slate-100 px-3 pt-3 pb-2 shrink-0 border-b border-slate-800">
+              {t('controller.timeBlocks')}
+            </h2>
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2 space-y-2">
+              {sessionSlideRanges.map((range, sessionIdx) => {
+                const session = range.session
+                const isCurrentSession = sessionIdx === currentSessionIndex
+                const hasAudio = session.audio?.url || session.audio?.file || session.audioTracks?.length > 0
+                const colors = getSessionBlockColors(session, sessionIdx)
+                const slideCount = range.end - range.start + 1
+                return (
+                  <button
+                    type="button"
+                    key={`session-${sessionIdx}`}
+                    onClick={() => goToSlide(range.start)}
+                    className={`w-full text-left rounded-lg p-3 border transition ${
+                      isCurrentSession
+                        ? `${colors.bg} border-l-4 ${colors.border} ring-1 ring-white/10`
+                        : `border-slate-800 border-l-4 ${colors.border} bg-slate-900/50 hover:bg-slate-800/80`
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold shrink-0 text-white ${colors.badge}`}
+                      >
+                        {sessionIdx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className={`text-sm font-medium truncate ${isCurrentSession ? 'text-white' : 'text-slate-200'}`}>
+                          {session.name || `${t('controller.session')} ${sessionIdx + 1}`}
+                          <span className="ml-1">{colors.icon}</span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {slideCount} {t('controller.slides')}
+                          {hasAudio && ` · 🎵`}
+                        </div>
+                        {isCurrentSession && (
+                          <div className={`text-xs font-mono mt-1 tabular-nums ${colors.text}`}>
+                            ⏱ {formatTime(sessionElapsedTime[sessionIdx] || 0)}
+                            {getSessionTotalDuration(sessionIdx)
+                              ? ` / ${formatTime(getSessionTotalDuration(sessionIdx))}`
+                              : ''}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <img
-                      src={nextSlide.url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  )
-                ) : (
-                  <span className="text-sm text-slate-500 px-3 text-center">{t('controller.endOfPresentation')}</span>
-                )}
-              </div>
-              {nextSlide && (
-                <p className="mt-2 text-center text-xs text-slate-500">
-                  {t('controller.slide')} {currentSlideIndex + 2} {t('controller.of')} {slides.length}
-                </p>
-              )}
+                  </button>
+                )
+              })}
             </div>
-
-            <div className="flex-1 min-h-[100px] flex flex-col p-3 border-b border-slate-800 overflow-hidden">
-              <h2 className="text-sm font-normal text-slate-200 mb-2">
-                {t('controller.notes')}
-              </h2>
-              <div className="flex-1 overflow-y-auto rounded-md bg-amber-950/25 border border-amber-900/30 p-2.5 text-sm text-amber-100/90 leading-relaxed whitespace-pre-wrap">
-                {activeSession?.speakerNotes?.trim()
-                  ? activeSession.speakerNotes
-                  : <span className="text-slate-600 text-xs">—</span>}
-              </div>
-            </div>
-
-            <div className="flex-shrink-0 p-2 border-b border-slate-800 overflow-y-auto max-h-[38vh]">
+            <div className="shrink-0 border-t border-slate-800 p-2 max-h-[40vh] overflow-y-auto">
               {activeSession && (
                 <MusicPlayer
                   session={activeSession}
@@ -960,54 +1036,8 @@ export default function Controller({
                 />
               )}
             </div>
-
-            <div className="flex-shrink-0 p-2 overflow-y-auto min-h-0 max-h-40">
-              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
-                {t('controller.sessions')}
-              </h2>
-              <div className="flex flex-col gap-1" style={{ willChange: 'contents' }}>
-                {sessionSlideRanges.map((range, sessionIdx) => {
-                  const session = range.session
-                  const isCurrentSession = sessionIdx === currentSessionIndex
-                  const hasAudio = session.audio?.url || session.audio?.file || session.audioTracks?.length > 0
-                  const colors = getSessionColors(session)
-                  return (
-                    <button
-                      type="button"
-                      key={`session-${sessionIdx}`}
-                      onClick={() => goToSlide(range.start)}
-                      className={`text-left rounded-lg px-2 py-1.5 border transition ${
-                        isCurrentSession
-                          ? `${colors.bg} border-l-4 ${colors.border}`
-                          : 'border-transparent hover:bg-slate-800/80'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${
-                            isCurrentSession ? `${colors.badge} text-white` : 'bg-slate-700 text-slate-300'
-                          }`}
-                        >
-                          {sessionIdx + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <div className={`text-xs font-medium truncate ${isCurrentSession ? 'text-white' : 'text-slate-400'}`}>
-                            {session.name || `${t('controller.session')} ${sessionIdx + 1}`}
-                            <span className="ml-1">{colors.icon}</span>
-                          </div>
-                          {!isCurrentSession && hasAudio && (
-                            <div className="text-[10px] text-slate-600">🎵 {t('controller.audioAvailable')}</div>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
           </aside>
         </div>
-
         {/* Filmstrook — alle dia's (groter, PowerPoint-achtig + dia-nummer) */}
         <div
           className="flex-shrink-0 min-h-[11rem] h-[22vh] max-h-[260px] border-t border-slate-800 bg-[#0a0a0a] flex flex-col gap-1.5 py-2 pl-3 pr-2"
@@ -1017,37 +1047,45 @@ export default function Controller({
             {t('controller.allSlides')} · {t('controller.slide')} {currentSlideIndex + 1} {t('controller.of')} {slides.length}
           </div>
           <div className="flex-1 min-h-0 flex items-stretch gap-2 sm:gap-2.5 overflow-x-auto overflow-y-hidden pb-1 scroll-smooth">
-            {slides.map((slide, idx) => (
-              <button
-                type="button"
-                key={idx}
-                onClick={() => goToSlide(idx)}
-                className={`flex flex-col shrink-0 h-full max-h-full w-[7.5rem] sm:w-36 md:w-40 rounded-lg overflow-hidden border-[3px] transition-all ${
-                  idx === currentSlideIndex
-                    ? 'border-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.5)] scale-[1.03] z-10'
-                    : 'border-slate-700 hover:border-slate-500 opacity-90 hover:opacity-100 hover:scale-[1.01]'
-                }`}
-              >
-                <div className="flex-1 min-h-0 w-full bg-black relative">
-                  {slide.isVideo ? (
-                    <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                      <svg className="w-7 h-7 sm:w-8 sm:h-8 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </div>
-                  ) : (
-                    <img src={slide.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                  )}
-                </div>
-                <div
-                  className={`shrink-0 text-center text-[11px] sm:text-xs py-1 font-medium tabular-nums ${
-                    idx === currentSlideIndex ? 'bg-orange-950/80 text-orange-100' : 'bg-black/80 text-slate-400'
+            {slides.map((slide, idx) => {
+              const sIdx = getSessionIndexForSlide(idx)
+              const range = sessionSlideRanges[sIdx]
+              const sc = getSessionBlockColors(range.session, sIdx)
+              const isFirstInBlock = idx === range.start && sIdx > 0
+              return (
+                <button
+                  type="button"
+                  key={idx}
+                  onClick={() => goToSlide(idx)}
+                  className={`flex flex-col shrink-0 h-full max-h-full w-[7.5rem] sm:w-36 md:w-40 rounded-lg overflow-hidden border-[3px] transition-all ${
+                    isFirstInBlock ? 'ml-2 border-l-2 border-l-slate-500 pl-2 rounded-l-none' : ''
+                  } ${
+                    idx === currentSlideIndex
+                      ? 'border-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.5)] scale-[1.03] z-10'
+                      : 'border-slate-700 hover:border-slate-500 opacity-90 hover:opacity-100 hover:scale-[1.01]'
                   }`}
                 >
-                  {idx + 1}
-                </div>
-              </button>
-            ))}
+                  <div className="flex-1 min-h-0 w-full bg-black relative">
+                    {slide.isVideo ? (
+                      <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                        <svg className="w-7 h-7 sm:w-8 sm:h-8 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <img src={slide.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <div
+                    className={`shrink-0 text-center text-[11px] sm:text-xs py-1 font-medium tabular-nums text-white ${
+                      idx === currentSlideIndex ? 'bg-orange-600' : sc.bottomAccent
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       </div>

@@ -69,6 +69,7 @@ export const de = {
     nextSlidePreview: 'Nächste Folie',
     notes: 'Notizen',
     sessions: 'Abschnitte',
+    timeBlocks: 'Zeitblöcke',
     endOfPresentation: 'Ende der Präsentation',
     allSlides: 'Alle Folien',
   },
