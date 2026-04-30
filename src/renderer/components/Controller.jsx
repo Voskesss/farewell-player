@@ -659,7 +659,7 @@ export default function Controller({
           console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing)
 
           // Als gepauzeerd: alleen play aanzetten, NIET naar volgende slide
-          // Als al aan het spelen: wel naar volgende slide (en blijft spelen)
+          // Als al aan het spelen: wel naar volgende slide
           if (!playing) {
             console.log('[Controller] remoteNextSlide: was paused, starting play')
             setIsPlaying(true)
@@ -667,6 +667,12 @@ export default function Controller({
             const nextSlide = slideIdx + 1
             if (nextSlide < slides.length) {
               console.log('[Controller] remoteNextSlide: was playing, going to next slide:', nextSlide)
+              // Check of volgende slide pauseHere heeft
+              const targetSlide = slides[nextSlide]
+              if (targetSlide?.pauseHere) {
+                console.log('[Controller] remoteNextSlide: target has pauseHere, will pause')
+                setIsPlaying(false)
+              }
               goToSlide(nextSlide)
             }
           }
@@ -675,9 +681,33 @@ export default function Controller({
 
         case 'remotePrevSlide': {
           console.log('[Controller] remotePrevSlide | slideIdx:', slideIdx)
-          // Vorige slide (geen auto-start, dat is meestal correctie)
+          // Vorige slide - check pauseHere voor correctie
           if (slideIdx > 0) {
-            goToSlide(slideIdx - 1)
+            const prevSlideIdx = slideIdx - 1
+            const targetSlide = slides[prevSlideIdx]
+            // Als target slide pauseHere heeft, pauzeer + reset sessie audio
+            if (targetSlide?.pauseHere) {
+              console.log('[Controller] remotePrevSlide: target has pauseHere, pausing and resetting audio')
+              setIsPlaying(false)
+              // Reset audio van de sessie waar we naartoe gaan
+              const targetSessionIdx = getSessionIndexForSlide(prevSlideIdx)
+              const audio = audioRefs.current[targetSessionIdx]
+              if (audio) {
+                audio.pause()
+                audio.currentTime = 0
+              }
+              // Reset elapsed time voor die sessie
+              setSessionElapsedTime(prev => ({
+                ...prev,
+                [targetSessionIdx]: 0
+              }))
+              // Reset audioEnded voor die sessie
+              setAudioEnded(prev => ({
+                ...prev,
+                [targetSessionIdx]: false
+              }))
+            }
+            goToSlide(prevSlideIdx)
           }
           break
         }
@@ -693,7 +723,7 @@ export default function Controller({
     return () => {
       window.electronAPI?.removeControllerCommandListener()
     }
-  }, [handleVideoEnded, goToSlide, setIsPlaying, sessionSlideRanges, getSessionIndexForSlide, slides.length])
+  }, [handleVideoEnded, goToSlide, setIsPlaying, sessionSlideRanges, getSessionIndexForSlide, slides])
 
   const openPresentationWindow = async () => {
     if (window.electronAPI) {
