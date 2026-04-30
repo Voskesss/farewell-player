@@ -14,7 +14,6 @@ export default function Controller({
   const [displays, setDisplays] = useState([])
   const [selectedDisplay, setSelectedDisplay] = useState(null)
   const [presentationWindowOpen, setPresentationWindowOpen] = useState(false)
-  const [remoteAutoStart, setRemoteAutoStart] = useState(true) // Remote volgende/vorige start ook play
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
   const [, setPlayingAudioSession] = useState(null)
   const [sessionElapsedTime, setSessionElapsedTime] = useState({}) // Elapsed time per sessie in seconden
@@ -26,7 +25,6 @@ export default function Controller({
   const elapsedTimerRef = useRef(null)
   const videoEndedDebounceRef = useRef(null)
   const filmStripActiveThumbRef = useRef(null)
-  const remoteAutoStartRef = useRef(remoteAutoStart)
   const isPlayingRef = useRef(isPlaying)
   const currentSlideIndexRef = useRef(currentSlideIndex)
   /** Na volgende/vorige slide: play aanzetten (na sessie-effect, overschrijft pause-default) */
@@ -34,7 +32,6 @@ export default function Controller({
   const [wallNow, setWallNow] = useState(() => new Date())
 
   // Sync refs met state voor gebruik in event handlers
-  useEffect(() => { remoteAutoStartRef.current = remoteAutoStart }, [remoteAutoStart])
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
   useEffect(() => { currentSlideIndexRef.current = currentSlideIndex }, [currentSlideIndex])
 
@@ -650,9 +647,7 @@ export default function Controller({
       // Gebruik refs voor actuele waarden (voorkomt stale closure)
       const slideIdx = currentSlideIndexRef.current
       const playing = isPlayingRef.current
-      const autoStart = remoteAutoStartRef.current
-
-      console.log('[Controller] Remote command:', command, '| slide:', slideIdx, '| playing:', playing, '| autoStart:', autoStart)
+      console.log('[Controller] Remote command:', command, '| slide:', slideIdx, '| playing:', playing)
 
       switch (command) {
         case 'videoEnded':
@@ -661,13 +656,19 @@ export default function Controller({
           break
 
         case 'remoteNextSlide': {
-          console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing, '| autoStart:', autoStart)
+          console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing)
 
-          const nextSlide = slideIdx + 1
-          if (nextSlide < slides.length) {
-            // "Volgende" op presentatievenster (remote/clicker) start ALTIJD afspelen
-            autoPlayAfterSlideChangeRef.current = true
-            goToSlide(nextSlide)
+          // Als gepauzeerd: alleen play aanzetten, NIET naar volgende slide
+          // Als al aan het spelen: wel naar volgende slide (en blijft spelen)
+          if (!playing) {
+            console.log('[Controller] remoteNextSlide: was paused, starting play')
+            setIsPlaying(true)
+          } else {
+            const nextSlide = slideIdx + 1
+            if (nextSlide < slides.length) {
+              console.log('[Controller] remoteNextSlide: was playing, going to next slide:', nextSlide)
+              goToSlide(nextSlide)
+            }
           }
           break
         }
@@ -813,18 +814,6 @@ export default function Controller({
           <h1 className="text-base font-semibold text-white truncate">{name}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <label
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-800/80 text-xs cursor-pointer select-none"
-            title={t('controller.remoteAutoStartTooltip')}
-          >
-            <input
-              type="checkbox"
-              checked={remoteAutoStart}
-              onChange={(e) => setRemoteAutoStart(e.target.checked)}
-              className="w-3.5 h-3.5 accent-primary-500"
-            />
-            <span className="text-slate-300">{t('controller.remoteAutoStart')}</span>
-          </label>
           <select
             value={selectedDisplay || ''}
             onChange={(e) => setSelectedDisplay(Number(e.target.value))}
