@@ -105,9 +105,22 @@ export default function UpdateNotification() {
                 <p className="text-xs text-red-400">
                   {t('update.error')}: {error}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {t('update.restartToRetry')}
-                </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setError(null)
+                    setIsDownloading(true)
+                    if (window.electronAPI?.retryUpdate) {
+                      window.electronAPI.retryUpdate().catch(err => {
+                        setError(err.message || 'Retry failed')
+                        setIsDownloading(false)
+                      })
+                    }
+                  }}
+                  className="mt-2 px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
+                >
+                  {t('update.retry')}
+                </button>
               </div>
             )}
 

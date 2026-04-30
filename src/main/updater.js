@@ -70,3 +70,11 @@ export function initAutoUpdater(mainWindow) {
 export function quitAndInstall() {
   autoUpdater.quitAndInstall(false, true)
 }
+
+export function retryUpdate() {
+  if (logger) logger.info('Retrying update check...')
+  return autoUpdater.checkForUpdates().catch(err => {
+    if (logger) logger.warn('Failed to retry update', { error: err.message })
+    throw err
+  })
+}

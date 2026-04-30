@@ -110,7 +110,7 @@ export const nl = {
     installNow: 'Nu installeren',
     later: 'Later',
     error: 'Fout',
-    restartToRetry: 'Herstart de app om opnieuw te proberen',
+    retry: 'Opnieuw proberen',
   },
 
   // Errors

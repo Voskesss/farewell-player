@@ -1,6 +1,6 @@
 {
   "name": "farewell-player",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "description": "Offline presentatie speler voor uitvaartpresentaties",
   "type": "module",
   "main": "src/main/main.js",
@@ -38,6 +38,7 @@
   "build": {
     "appId": "nl.thelastfarewell.player",
     "productName": "Farewell Player",
+    "artifactName": "${name}-${version}-${arch}.${ext}",
     "directories": {
       "output": "dist"
     },

@@ -110,7 +110,7 @@ export const en = {
     installNow: 'Install now',
     later: 'Later',
     error: 'Error',
-    restartToRetry: 'Restart the app to try again',
+    retry: 'Try again',
   },
 
   // Errors

@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { getLogger } from './logger.js'
-import { initAutoUpdater, quitAndInstall } from './updater.js'
+import { initAutoUpdater, quitAndInstall, retryUpdate } from './updater.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -247,6 +247,11 @@ ipcMain.handle('get-log-path', async () => {
 ipcMain.handle('install-update', async () => {
   quitAndInstall()
   return true
+})
+
+// Probeer update opnieuw
+ipcMain.handle('retry-update', async () => {
+  return retryUpdate()
 })
 
 // Haal app versie op
