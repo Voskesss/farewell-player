@@ -111,6 +111,8 @@ export const de = {
     later: 'Später',
     error: 'Fehler',
     retry: 'Erneut versuchen',
+    checkForUpdates: 'Nach Updates suchen',
+    checking: 'Überprüfen...',
   },
 
   // Errors

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, powerSaveBlocker, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, powerSaveBlocker, screen, Menu } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -264,6 +264,49 @@ app.whenReady().then(() => {
   // Initialiseer logger
   logger = getLogger()
   logger.logAppEvent('App started', { version: app.getVersion() })
+  
+  // Maak app menu met "Controleer op updates"
+  const isMac = process.platform === 'darwin'
+  const template = [
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        {
+          label: 'Controleer op updates...',
+          click: () => {
+            retryUpdate().catch(() => {})
+          }
+        },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Controleer op updates...',
+          click: () => {
+            retryUpdate().catch(() => {})
+          }
+        }
+      ]
+    }
+  ]
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
   
   createControllerWindow()
   

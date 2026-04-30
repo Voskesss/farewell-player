@@ -111,6 +111,8 @@ export const nl = {
     later: 'Later',
     error: 'Fout',
     retry: 'Opnieuw proberen',
+    checkForUpdates: 'Controleer op updates',
+    checking: 'Controleren...',
   },
 
   // Errors
