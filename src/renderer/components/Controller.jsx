@@ -14,6 +14,7 @@ export default function Controller({
   const [displays, setDisplays] = useState([])
   const [selectedDisplay, setSelectedDisplay] = useState(null)
   const [presentationWindowOpen, setPresentationWindowOpen] = useState(false)
+  const [remoteAutoStart, setRemoteAutoStart] = useState(true) // Remote volgende/vorige start ook play
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
   const [, setPlayingAudioSession] = useState(null)
   const [sessionElapsedTime, setSessionElapsedTime] = useState({}) // Elapsed time per sessie in seconden
@@ -25,7 +26,17 @@ export default function Controller({
   const elapsedTimerRef = useRef(null)
   const videoEndedDebounceRef = useRef(null)
   const filmStripActiveThumbRef = useRef(null)
+  const remoteAutoStartRef = useRef(remoteAutoStart)
+  const isPlayingRef = useRef(isPlaying)
+  const currentSlideIndexRef = useRef(currentSlideIndex)
+  /** Na volgende/vorige slide: play aanzetten (na sessie-effect, overschrijft pause-default) */
+  const autoPlayAfterSlideChangeRef = useRef(false)
   const [wallNow, setWallNow] = useState(() => new Date())
+
+  // Sync refs met state voor gebruik in event handlers
+  useEffect(() => { remoteAutoStartRef.current = remoteAutoStart }, [remoteAutoStart])
+  useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
+  useEffect(() => { currentSlideIndexRef.current = currentSlideIndex }, [currentSlideIndex])
 
   useEffect(() => {
     const id = setInterval(() => setWallNow(new Date()), 1000)
@@ -250,6 +261,14 @@ export default function Controller({
     }
   }, [currentSlideIndex, getCurrentSessionFromSlide, currentSessionIndex, sessionSlideRanges, isPlaying, setIsPlaying, slides])
 
+  // Zet play aan ná slide-wissel als we dat expres wilden (remote / clicker / PageDown op controller).
+  // Draait ná het sessie-switch-effect zodat pauseHere/speaker-default niet blijft hangen.
+  useEffect(() => {
+    if (!autoPlayAfterSlideChangeRef.current) return
+    autoPlayAfterSlideChangeRef.current = false
+    setIsPlaying(true)
+  }, [currentSlideIndex, setIsPlaying])
+
   // Elapsed time timer per sessie - update elke seconde wanneer playing
   // + check of sessie moet stoppen
   useEffect(() => {
@@ -312,11 +331,15 @@ export default function Controller({
           break
         case 'ArrowRight':
           e.preventDefault()
-          goToSlide(currentSlideIndex + 1)
+          if (currentSlideIndex < slides.length - 1) {
+            setCurrentSlideIndex(currentSlideIndex + 1)
+          }
           break
         case 'ArrowLeft':
           e.preventDefault()
-          goToSlide(currentSlideIndex - 1)
+          if (currentSlideIndex > 0) {
+            setCurrentSlideIndex(currentSlideIndex - 1)
+          }
           break
         case 'ArrowUp':
           e.preventDefault()
@@ -325,7 +348,7 @@ export default function Controller({
             const si = getSessionIndexForSlide(currentSlideIndex)
             if (si > 0) {
               const prevSession = sessionSlideRanges[si - 1]
-              goToSlide(prevSession.start)
+              setCurrentSlideIndex(prevSession.start)
             }
           }
           break
@@ -335,7 +358,7 @@ export default function Controller({
             const si = getSessionIndexForSlide(currentSlideIndex)
             if (si < sessionSlideRanges.length - 1) {
               const nextSession = sessionSlideRanges[si + 1]
-              goToSlide(nextSession.start)
+              setCurrentSlideIndex(nextSession.start)
             }
           }
           break
@@ -623,30 +646,53 @@ export default function Controller({
   useEffect(() => {
     if (!window.electronAPI) return
 
-    window.electronAPI.onControllerCommand(({ command, data }) => {
-      console.log('[Controller] Received command from presentation:', command)
+    const handler = ({ command, data }) => {
+      // Gebruik refs voor actuele waarden (voorkomt stale closure)
+      const slideIdx = currentSlideIndexRef.current
+      const playing = isPlayingRef.current
+      const autoStart = remoteAutoStartRef.current
+
+      console.log('[Controller] Remote command:', command, '| slide:', slideIdx, '| playing:', playing, '| autoStart:', autoStart)
+
       switch (command) {
         case 'videoEnded':
-          // Video is klaar in presentatie venster - ga naar volgende slide
           console.log('[Controller] Video ended, advancing to next slide')
           handleVideoEnded()
           break
-        case 'remoteNextSlide':
-          goToSlide(currentSlideIndex + 1)
+
+        case 'remoteNextSlide': {
+          console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing, '| autoStart:', autoStart)
+
+          const nextSlide = slideIdx + 1
+          if (nextSlide < slides.length) {
+            // "Volgende" op presentatievenster (remote/clicker) start ALTIJD afspelen
+            autoPlayAfterSlideChangeRef.current = true
+            goToSlide(nextSlide)
+          }
           break
-        case 'remotePrevSlide':
-          goToSlide(currentSlideIndex - 1)
+        }
+
+        case 'remotePrevSlide': {
+          console.log('[Controller] remotePrevSlide | slideIdx:', slideIdx)
+          // Vorige slide (geen auto-start, dat is meestal correctie)
+          if (slideIdx > 0) {
+            goToSlide(slideIdx - 1)
+          }
           break
+        }
+
         case 'remotePlayPause':
           setIsPlaying((p) => !p)
           break
       }
-    })
+    }
+
+    window.electronAPI.onControllerCommand(handler)
 
     return () => {
       window.electronAPI?.removeControllerCommandListener()
     }
-  }, [handleVideoEnded, goToSlide, currentSlideIndex, setIsPlaying])
+  }, [handleVideoEnded, goToSlide, setIsPlaying, sessionSlideRanges, getSessionIndexForSlide, slides.length])
 
   const openPresentationWindow = async () => {
     if (window.electronAPI) {
@@ -767,6 +813,18 @@ export default function Controller({
           <h1 className="text-base font-semibold text-white truncate">{name}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <label
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-800/80 text-xs cursor-pointer select-none"
+            title={t('controller.remoteAutoStartTooltip')}
+          >
+            <input
+              type="checkbox"
+              checked={remoteAutoStart}
+              onChange={(e) => setRemoteAutoStart(e.target.checked)}
+              className="w-3.5 h-3.5 accent-primary-500"
+            />
+            <span className="text-slate-300">{t('controller.remoteAutoStart')}</span>
+          </label>
           <select
             value={selectedDisplay || ''}
             onChange={(e) => setSelectedDisplay(Number(e.target.value))}
