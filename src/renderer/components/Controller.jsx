@@ -318,62 +318,6 @@ export default function Controller({
     fetchDisplays()
   }, [])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      switch (e.code) {
-        case 'Space':
-          e.preventDefault()
-          setIsPlaying(prev => !prev)
-          break
-        case 'ArrowRight':
-          e.preventDefault()
-          if (currentSlideIndex < slides.length - 1) {
-            setCurrentSlideIndex(currentSlideIndex + 1)
-          }
-          break
-        case 'ArrowLeft':
-          e.preventDefault()
-          if (currentSlideIndex > 0) {
-            setCurrentSlideIndex(currentSlideIndex - 1)
-          }
-          break
-        case 'ArrowUp':
-          e.preventDefault()
-          // Sessie altijd afleiden van slide — currentSessionIndex loopt 1 tick achter na ←/→
-          {
-            const si = getSessionIndexForSlide(currentSlideIndex)
-            if (si > 0) {
-              const prevSession = sessionSlideRanges[si - 1]
-              setCurrentSlideIndex(prevSession.start)
-            }
-          }
-          break
-        case 'ArrowDown':
-          e.preventDefault()
-          {
-            const si = getSessionIndexForSlide(currentSlideIndex)
-            if (si < sessionSlideRanges.length - 1) {
-              const nextSession = sessionSlideRanges[si + 1]
-              setCurrentSlideIndex(nextSession.start)
-            }
-          }
-          break
-        case 'Escape':
-          e.preventDefault()
-          closePresentationWindow()
-          break
-        case 'KeyR':
-          e.preventDefault()
-          resetToStart()
-          break
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentSlideIndex, slides.length, sessionSlideRanges, getSessionIndexForSlide])
-
   // Haal slide duration (in ms): manifest per-slide `duration` wint, anders sessie/default (FAREWELL_PLAYER_MANIFEST.md §4)
   const getCurrentSlideDuration = useCallback(() => {
     const slide = slides[currentSlideIndex]
@@ -576,6 +520,93 @@ export default function Controller({
       }
     })
   }, [slides.length, setCurrentSlideIndex])
+
+  // Keyboard shortcuts - zelfde logica als remote voor "volgende/vorige" toetsen
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault()
+          setIsPlaying(prev => !prev)
+          break
+        // "Volgende" toetsen: eerst play, dan pas volgende slide
+        case 'ArrowRight':
+        case 'PageDown':
+        case 'Period':
+        case 'NumpadDecimal':
+        case 'Enter':
+        case 'NumpadEnter':
+          e.preventDefault()
+          // Zelfde logica als remote: gepauzeerd = play, speelt = volgende
+          if (!isPlaying) {
+            setIsPlaying(true)
+          } else if (currentSlideIndex < slides.length - 1) {
+            const nextIdx = currentSlideIndex + 1
+            const targetSlide = slides[nextIdx]
+            if (targetSlide?.pauseHere) {
+              setIsPlaying(false)
+            }
+            goToSlide(nextIdx)
+          }
+          break
+        // "Vorige" toetsen: ga terug, pauseer + reset audio als pauseHere
+        case 'ArrowLeft':
+        case 'PageUp':
+        case 'Comma':
+          e.preventDefault()
+          if (currentSlideIndex > 0) {
+            const prevIdx = currentSlideIndex - 1
+            const targetSlide = slides[prevIdx]
+            if (targetSlide?.pauseHere) {
+              setIsPlaying(false)
+              const targetSessionIdx = getSessionIndexForSlide(prevIdx)
+              const audio = audioRefs.current[targetSessionIdx]
+              if (audio) {
+                audio.pause()
+                audio.currentTime = 0
+              }
+              setSessionElapsedTime(prev => ({ ...prev, [targetSessionIdx]: 0 }))
+              setAudioEnded(prev => ({ ...prev, [targetSessionIdx]: false }))
+            }
+            goToSlide(prevIdx)
+          }
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          // Vorige sessie
+          {
+            const si = getSessionIndexForSlide(currentSlideIndex)
+            if (si > 0) {
+              const prevSession = sessionSlideRanges[si - 1]
+              goToSlide(prevSession.start)
+            }
+          }
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          // Volgende sessie
+          {
+            const si = getSessionIndexForSlide(currentSlideIndex)
+            if (si < sessionSlideRanges.length - 1) {
+              const nextSession = sessionSlideRanges[si + 1]
+              goToSlide(nextSession.start)
+            }
+          }
+          break
+        case 'Escape':
+          e.preventDefault()
+          closePresentationWindow()
+          break
+        case 'KeyR':
+          e.preventDefault()
+          resetToStart()
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentSlideIndex, slides, sessionSlideRanges, getSessionIndexForSlide, isPlaying, goToSlide])
 
   // Check elke seconde of sessie moet stoppen en naar volgende gaan
   useEffect(() => {
