@@ -537,16 +537,32 @@ export default function Controller({
         case 'Enter':
         case 'NumpadEnter':
           e.preventDefault()
-          // Zelfde logica als remote: gepauzeerd = play, speelt = volgende
-          if (!isPlaying) {
-            setIsPlaying(true)
-          } else if (currentSlideIndex < slides.length - 1) {
-            const nextIdx = currentSlideIndex + 1
-            const targetSlide = slides[nextIdx]
-            if (targetSlide?.pauseHere) {
-              setIsPlaying(false)
+          {
+            // Check of huidige sessie een speaker sessie is met maar 1 slide
+            const currentSessionIdx = getSessionIndexForSlide(currentSlideIndex)
+            const currentRange = sessionSlideRanges[currentSessionIdx]
+            const currentSession = currentRange?.session
+            const isSpeakerWithOneSlide = (currentSession?.speakerMode || !currentSession?.audio?.url) && 
+                                           (currentRange?.end - currentRange?.start === 0)
+
+            // Speaker sessie met 1 slide: direct naar volgende slide
+            if (isSpeakerWithOneSlide && currentSlideIndex < slides.length - 1) {
+              setIsPlaying(true)
+              goToSlide(currentSlideIndex + 1)
+              break
             }
-            goToSlide(nextIdx)
+
+            // Normale logica: gepauzeerd = play, speelt = volgende
+            if (!isPlaying) {
+              setIsPlaying(true)
+            } else if (currentSlideIndex < slides.length - 1) {
+              const nextIdx = currentSlideIndex + 1
+              const targetSlide = slides[nextIdx]
+              if (targetSlide?.pauseHere) {
+                setIsPlaying(false)
+              }
+              goToSlide(nextIdx)
+            }
           }
           break
         // "Vorige" toetsen: ga terug, pauseer + reset audio als pauseHere
@@ -689,8 +705,26 @@ export default function Controller({
         case 'remoteNextSlide': {
           console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing)
 
-          // Als gepauzeerd: alleen play aanzetten, NIET naar volgende slide
-          // Als al aan het spelen: wel naar volgende slide
+          // Check of huidige sessie een speaker sessie is met maar 1 slide
+          const currentSessionIdx = getSessionIndexForSlide(slideIdx)
+          const currentRange = sessionSlideRanges[currentSessionIdx]
+          const currentSession = currentRange?.session
+          const isSpeakerWithOneSlide = (currentSession?.speakerMode || !currentSession?.audio?.url) && 
+                                         (currentRange?.end - currentRange?.start === 0)
+
+          // Speaker sessie met 1 slide: direct naar volgende slide (play doet niks)
+          if (isSpeakerWithOneSlide) {
+            const nextSlide = slideIdx + 1
+            if (nextSlide < slides.length) {
+              console.log('[Controller] remoteNextSlide: speaker with 1 slide, going to next slide:', nextSlide)
+              // Volgende slide start automatisch (video's spelen af via Presentation component)
+              setIsPlaying(true)
+              goToSlide(nextSlide)
+            }
+            break
+          }
+
+          // Normale logica: gepauzeerd = play, speelt = volgende slide
           if (!playing) {
             console.log('[Controller] remoteNextSlide: was paused, starting play')
             setIsPlaying(true)
