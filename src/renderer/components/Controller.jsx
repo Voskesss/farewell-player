@@ -538,21 +538,20 @@ export default function Controller({
         case 'NumpadEnter':
           e.preventDefault()
           {
-            // Check of huidige sessie een speaker sessie is met maar 1 slide
+            // Check of huidige sessie een speaker sessie is (geen audio = handmatig doorklikken)
             const currentSessionIdx = getSessionIndexForSlide(currentSlideIndex)
             const currentRange = sessionSlideRanges[currentSessionIdx]
             const currentSession = currentRange?.session
-            const isSpeakerWithOneSlide = (currentSession?.speakerMode || !currentSession?.audio?.url) && 
-                                           (currentRange?.end - currentRange?.start === 0)
+            const isSpeakerMode = currentSession?.speakerMode || !currentSession?.audio?.url
 
-            // Speaker sessie met 1 slide: direct naar volgende slide
-            if (isSpeakerWithOneSlide && currentSlideIndex < slides.length - 1) {
+            // Speaker sessie: altijd direct naar volgende slide
+            if (isSpeakerMode && currentSlideIndex < slides.length - 1) {
               setIsPlaying(true)
               goToSlide(currentSlideIndex + 1)
               break
             }
 
-            // Normale logica: gepauzeerd = play, speelt = volgende
+            // Normale sessie: gepauzeerd = play, speelt = volgende
             if (!isPlaying) {
               setIsPlaying(true)
             } else if (currentSlideIndex < slides.length - 1) {
@@ -705,26 +704,24 @@ export default function Controller({
         case 'remoteNextSlide': {
           console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing)
 
-          // Check of huidige sessie een speaker sessie is met maar 1 slide
+          // Check of huidige sessie een speaker sessie is (geen audio = handmatig doorklikken)
           const currentSessionIdx = getSessionIndexForSlide(slideIdx)
           const currentRange = sessionSlideRanges[currentSessionIdx]
           const currentSession = currentRange?.session
-          const isSpeakerWithOneSlide = (currentSession?.speakerMode || !currentSession?.audio?.url) && 
-                                         (currentRange?.end - currentRange?.start === 0)
+          const isSpeakerMode = currentSession?.speakerMode || !currentSession?.audio?.url
 
-          // Speaker sessie met 1 slide: direct naar volgende slide (play doet niks)
-          if (isSpeakerWithOneSlide) {
+          // Speaker sessie: altijd direct naar volgende slide (play doet niks bij speaker)
+          if (isSpeakerMode) {
             const nextSlide = slideIdx + 1
             if (nextSlide < slides.length) {
-              console.log('[Controller] remoteNextSlide: speaker with 1 slide, going to next slide:', nextSlide)
-              // Volgende slide start automatisch (video's spelen af via Presentation component)
+              console.log('[Controller] remoteNextSlide: speaker mode, going to next slide:', nextSlide)
               setIsPlaying(true)
               goToSlide(nextSlide)
             }
             break
           }
 
-          // Normale logica: gepauzeerd = play, speelt = volgende slide
+          // Normale sessie: gepauzeerd = play, speelt = volgende slide
           if (!playing) {
             console.log('[Controller] remoteNextSlide: was paused, starting play')
             setIsPlaying(true)
