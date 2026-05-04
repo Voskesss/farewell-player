@@ -155,5 +155,7 @@ export const de = {
     controls: 'Mit diesen Steuerelementen bedienen Sie die Präsentation: Abspielen/Pause, zur nächsten oder vorherigen Folie, oder zum nächsten Zeitblock. Sie können auch Tastenkürzel verwenden (Leertaste, Pfeiltasten, usw.).',
     displaySelect: 'Wählen Sie hier, auf welchem Bildschirm die Präsentation angezeigt werden soll. Wählen Sie einen externen Bildschirm oder Beamer.',
     startPresentation: 'Klicken Sie hier, um die Präsentation auf dem ausgewählten externen Bildschirm zu starten. Das Präsentationsfenster öffnet sich im Vollbildmodus auf dem Beamer.',
+    exitButton: 'Mit dieser Schaltfläche schließen Sie die Präsentation vollständig und kehren zum Startbildschirm zurück, um eine andere Präsentation zu laden.',
+    finished: 'Das war die Führung! Klicken Sie auf diese Schaltfläche, wenn Sie die Tour erneut sehen möchten. Viel Erfolg mit Ihrer Präsentation!',
   },
 }

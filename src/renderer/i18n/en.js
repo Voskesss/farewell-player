@@ -155,5 +155,7 @@ export const en = {
     controls: 'Use these controls to operate the presentation: play/pause, go to the next or previous slide, or to the next time block. You can also use keyboard shortcuts (Space, arrows, etc.).',
     displaySelect: 'Choose here which screen to show the presentation on. Select an external screen or projector.',
     startPresentation: 'Click here to start the presentation on the selected external screen. The presentation window opens fullscreen on the projector.',
+    exitButton: 'Use this button to completely close the presentation and return to the home screen to load another presentation.',
+    finished: 'That was the tour! Click this button if you want to see the tour again. Good luck with your presentation!',
   },
 }

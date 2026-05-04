@@ -155,5 +155,7 @@ export const nl = {
     controls: 'Hiermee bedien je de presentatie: afspelen/pauzeren, naar de volgende of vorige slide, of naar het volgende tijdblok. Je kunt ook sneltoetsen gebruiken (Space, pijltjes, etc.).',
     displaySelect: 'Kies hier op welk scherm je de presentatie wilt tonen. Selecteer een extern scherm of beamer.',
     startPresentation: 'Klik hier om de presentatie te starten op het geselecteerde externe scherm. Het presentatievenster opent fullscreen op de beamer.',
+    exitButton: 'Met deze knop sluit je de presentatie volledig af en ga je terug naar het beginscherm om een andere presentatie te laden.',
+    finished: 'Dat was de rondleiding! Klik op deze knop als je de tour nog een keer wilt zien. Veel succes met je presentatie!',
   },
 }

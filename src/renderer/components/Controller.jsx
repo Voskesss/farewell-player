@@ -34,7 +34,6 @@ export default function Controller({
   const autoPlayAfterSlideChangeRef = useRef(false)
   const [wallNow, setWallNow] = useState(() => new Date())
   const [runTour, setRunTour] = useState(false)
-  const [tourStepIndex, setTourStepIndex] = useState(0)
 
   // Sync refs met state voor gebruik in event handlers
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
@@ -178,31 +177,24 @@ export default function Controller({
       content: t('tour.startPresentation'),
       placement: 'bottom',
     },
+    {
+      target: '#exit-button',
+      content: t('tour.exitButton'),
+      placement: 'bottom',
+    },
+    {
+      target: '#tour-help-button',
+      content: t('tour.finished'),
+      placement: 'bottom',
+    },
   ], [t])
 
   // Tour callback handler
   const handleTourCallback = useCallback((data) => {
-    const { status, index, action, type } = data
-    
-    // Als remote knop wordt geklikt in stap 2, open modal en ga naar volgende stap
-    if (index === 1 && action === 'next' && type === 'step:after') {
-      setShowRemoteQR(true)
-      // Wacht even tot modal open is, dan door naar volgende stap
-      setTimeout(() => {
-        setTourStepIndex(2)
-      }, 300)
-    }
-    
-    // Sluit modal als we verder gaan na stap 2
-    if (index === 2 && type === 'step:before') {
-      setShowRemoteQR(false)
-    }
+    const { status } = data
     
     if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       setRunTour(false)
-      setTourStepIndex(0)
-      setShowRemoteQR(false)
-      // Onthoud dat tour bekeken is
       localStorage.setItem('farewell-tour-completed', 'true')
     }
   }, [])
@@ -1174,6 +1166,7 @@ export default function Controller({
       <header className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-black/50 border-b border-slate-800">
         <div className="flex items-center gap-3 min-w-0">
           <button
+            id="exit-button"
             type="button"
             onClick={handleExitController}
             className="flex items-center gap-2 shrink-0 pl-2.5 pr-3 py-2 rounded-lg border border-slate-600/90 bg-slate-800/90 hover:bg-slate-700 hover:border-slate-500 text-slate-100 text-sm font-medium transition shadow-sm"
@@ -1188,6 +1181,15 @@ export default function Controller({
           <h1 className="text-base font-semibold text-white truncate">{name}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            id="tour-help-button"
+            type="button"
+            onClick={() => setRunTour(true)}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-sm font-bold bg-orange-600 hover:bg-orange-500 text-white transition"
+            title={t('tour.startTour')}
+          >
+            ?
+          </button>
           <button
             id="remote-button"
             type="button"
@@ -1643,28 +1645,29 @@ export default function Controller({
 
       {/* Tour */}
       <Joyride
+        key={language}
         steps={tourSteps}
         run={runTour}
-        stepIndex={tourStepIndex}
         continuous
         showSkipButton
         showProgress
         disableOverlayClose
         callback={handleTourCallback}
         locale={{
-          back: t('tour.back'),
-          close: t('tour.close'),
-          last: t('tour.finish'),
-          next: t('tour.next'),
-          skip: t('tour.skip'),
+          back: t('tour.back') || 'Terug',
+          close: t('tour.close') || 'Sluiten',
+          last: t('tour.finish') || 'Klaar',
+          next: t('tour.next') || 'Volgende',
+          skip: t('tour.skip') || 'Overslaan',
         }}
         styles={{
           options: {
             primaryColor: '#f97316',
-            zIndex: 10000,
+            zIndex: 100000,
             arrowColor: '#1e293b',
             backgroundColor: '#1e293b',
             textColor: '#f1f5f9',
+            overlayColor: 'rgba(0, 0, 0, 0.85)',
           },
           tooltip: {
             borderRadius: 12,
@@ -1692,20 +1695,6 @@ export default function Controller({
         }}
       />
 
-      {/* Help knop */}
-      <button
-        type="button"
-        onClick={() => {
-          setTourStepIndex(0)
-          setRunTour(true)
-        }}
-        className="fixed bottom-4 right-4 w-10 h-10 bg-slate-700 hover:bg-slate-600 text-white rounded-full shadow-lg flex items-center justify-center transition z-50"
-        title={t('tour.startTour')}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </button>
     </div>
   )
 
