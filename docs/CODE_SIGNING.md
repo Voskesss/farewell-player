@@ -68,7 +68,7 @@ De projectmap heeft al:
 
 Je hoeft alleen de **environment variables** in `.env` in te vullen (zie `.env.example`). `electron-builder` gebruikt automatisch:
 - **CSC_NAME** voor code signing
-- **APPLE_ID**, **APPLE_APP_SPECIFIC_PASSWORD**, **APPLE_TEAM_ID** voor notarization
+- **APPLE_ID**, **APPLE_APP_SPECIFIC_PASSWORD**, **APPLE_TEAM_ID** voor notarization (`package.json` leest `mac.notarize.teamId` uit **${env.APPLE_TEAM_ID}**)
 
 ### Build & Sign
 

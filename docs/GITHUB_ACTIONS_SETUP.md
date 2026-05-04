@@ -12,11 +12,11 @@ Voeg deze secrets toe:
 
 ### Voor Mac signing (optioneel maar aanbevolen):
 
-| Secret | Waarde |
-|--------|--------|
-| `APPLE_ID` | josklijnhout@hotmail.com |
-| `APPLE_APP_SPECIFIC_PASSWORD` | Je app-specifieke wachtwoord (xxxx-xxxx-xxxx-xxxx) |
-| `APPLE_TEAM_ID` | G3N6YWNG5R |
+| Secret | Beschrijving |
+|--------|--------------|
+| `APPLE_ID` | Je Apple ID (e-mail) |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specifiek wachtwoord (xxxx-xxxx-xxxx-xxxx) |
+| `APPLE_TEAM_ID` | Team ID (10 tekens, Membership in Apple Developer) |
 | `MAC_CERTIFICATE` | Base64-encoded .p12 certificaat (zie onder) |
 | `MAC_CERTIFICATE_PASSWORD` | Wachtwoord van het .p12 bestand |
 

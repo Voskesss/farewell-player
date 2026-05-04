@@ -10,9 +10,21 @@ source .env && npm run build
 
 Of expliciet:
 ```bash
-export APPLE_ID="josklijnhout@hotmail.com"
-export APPLE_APP_SPECIFIC_PASSWORD="ogqu-oebb-dpyk-qqro"
-export APPLE_TEAM_ID="G3N6YWNG5R"
+# Gebruik een lokale .env (nooit committen). Voorbeeldwaarden staan in .env.example
+source .env 2>/dev/null || true
+export APPLE_ID
+export APPLE_APP_SPECIFIC_PASSWORD
+export APPLE_TEAM_ID
+export CSC_NAME
+npm run build
+```
+
+Of met expliciete exports (vul zelf in of zet in `.env`):
+
+```bash
+export APPLE_ID="your-apple-id@example.com"
+export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+export APPLE_TEAM_ID="XXXXXXXXXX"
 npm run build
 ```
 
