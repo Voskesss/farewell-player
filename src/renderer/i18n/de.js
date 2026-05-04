@@ -117,12 +117,12 @@ export const de = {
 
   // Remote control
   remote: {
-    title: 'Handy-Fernbedienung',
-    instructions: 'Scannen Sie den QR-Code mit Ihrem Handy oder öffnen Sie die URL in Ihrem Browser.',
+    title: 'Handy/Tablet als Controller verbinden',
+    instructions: 'Scannen Sie den QR-Code mit Ihrem Handy oder Tablet, oder öffnen Sie die URL in einem Browser.',
     selectNetwork: 'Netzwerk auswählen',
     orOpenUrl: 'Oder öffnen Sie diese URL:',
-    sameWifi: 'Stellen Sie sicher, dass Ihr Handy im selben WiFi-Netzwerk ist.',
-    openRemote: 'Fernbedienung',
+    sameWifi: 'Stellen Sie sicher, dass Ihr Gerät im selben WiFi-Netzwerk ist.',
+    openRemote: 'Controller verbinden',
     pinCode: 'PIN-Code',
   },
 

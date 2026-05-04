@@ -117,12 +117,12 @@ export const nl = {
 
   // Remote control
   remote: {
-    title: 'Telefoon Afstandsbediening',
-    instructions: 'Scan de QR-code met je telefoon of open de URL in je browser.',
+    title: 'Verbind telefoon/tablet als controller',
+    instructions: 'Scan de QR-code met je telefoon of tablet, of open de URL in een browser.',
     selectNetwork: 'Netwerk selecteren',
     orOpenUrl: 'Of open deze URL:',
-    sameWifi: 'Zorg dat je telefoon op hetzelfde WiFi-netwerk zit.',
-    openRemote: 'Afstandsbediening',
+    sameWifi: 'Zorg dat je apparaat op hetzelfde WiFi-netwerk zit.',
+    openRemote: 'Verbind controller',
     pinCode: 'PIN code',
   },
 
