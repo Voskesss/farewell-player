@@ -3,6 +3,7 @@ import { WebSocketServer } from 'ws'
 import { createServer } from 'http'
 import { networkInterfaces } from 'os'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -48,6 +49,45 @@ export function startRemoteServer(mainWindow, port = 3001) {
   // API endpoint voor huidige state
   app.get('/api/state', (req, res) => {
     res.json(currentState)
+  })
+  
+  // Serve lokale slide afbeeldingen
+  app.get('/slide/:index', (req, res) => {
+    const index = parseInt(req.params.index, 10)
+    const slides = currentState.presentation?.slides || []
+    const slide = slides[index]
+    
+    if (!slide || !slide.url) {
+      return res.status(404).send('Slide not found')
+    }
+    
+    // Converteer file:// URL naar lokaal pad
+    let filePath = slide.url
+    if (filePath.startsWith('file://')) {
+      filePath = decodeURIComponent(filePath.replace('file://', ''))
+    }
+    
+    // Check of bestand bestaat
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send('File not found')
+    }
+    
+    // Bepaal content type
+    const ext = path.extname(filePath).toLowerCase()
+    const mimeTypes = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm'
+    }
+    const contentType = mimeTypes[ext] || 'application/octet-stream'
+    
+    res.setHeader('Content-Type', contentType)
+    res.setHeader('Cache-Control', 'public, max-age=3600')
+    fs.createReadStream(filePath).pipe(res)
   })
   
   server = createServer(app)
@@ -635,11 +675,11 @@ function getRemoteHTML() {
           const slide = slides[i];
           const isSlideActive = i === state.currentSlideIndex;
           const isVideo = slide?.isVideo ? 'video' : '';
-          const thumbUrl = slide?.url || '';
           
           slidesHTML += '<div class="slide ' + (isSlideActive ? 'active' : '') + ' ' + isVideo + '" data-index="' + i + '">';
-          if (thumbUrl && !slide?.isVideo) {
-            slidesHTML += '<img src="' + thumbUrl + '" alt="" loading="lazy" draggable="false" />';
+          if (!slide?.isVideo) {
+            // Gebruik server endpoint voor afbeeldingen
+            slidesHTML += '<img src="/slide/' + i + '" alt="" loading="lazy" draggable="false" />';
           }
           slidesHTML += '<span class="number">' + (i + 1) + '</span>';
           slidesHTML += '</div>';
