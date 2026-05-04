@@ -342,13 +342,15 @@ function getRemoteHTML() {
       position: fixed;
       width: 100%;
       height: 100%;
+      background-color: #0f172a;
     }
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      background-color: #0f172a;
       color: white;
-      height: 100%;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
       padding: 12px;
       padding-top: max(12px, env(safe-area-inset-top));
       padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -389,12 +391,28 @@ function getRemoteHTML() {
       color: #94a3b8;
     }
     
+    .status .time {
+      font-family: monospace;
+      font-size: 12px;
+    }
+    
     .status .playing {
       color: #22c55e;
     }
     
     .status .paused {
       color: #f59e0b;
+    }
+    
+    .paused-banner {
+      background: #f59e0b;
+      color: #0f172a;
+      text-align: center;
+      padding: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
     }
     
     /* Sessies */
@@ -505,7 +523,8 @@ function getRemoteHTML() {
     }
     
     .session-compact.active {
-      box-shadow: 0 0 0 2px white;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
+      background: rgba(255,255,255,0.15) !important;
       font-weight: 600;
     }
     
@@ -697,6 +716,21 @@ function getRemoteHTML() {
       color: #94a3b8;
     }
     
+    .refresh-btn {
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    
+    .refresh-btn:active {
+      background: #2563eb;
+    }
+    
     /* Muziek panel */
     .music-bar {
       position: fixed;
@@ -783,9 +817,10 @@ function getRemoteHTML() {
   </div>
   
   <script>
-    // Taal detectie
+    // Taal - wordt overgenomen van de app, fallback naar browser
+    let lang = 'nl';
     const browserLang = (navigator.language || navigator.userLanguage || 'nl').split('-')[0];
-    const lang = ['nl', 'en', 'de'].includes(browserLang) ? browserLang : 'nl';
+    lang = ['nl', 'en', 'de'].includes(browserLang) ? browserLang : 'nl';
     
     const translations = {
       nl: {
@@ -808,6 +843,8 @@ function getRemoteHTML() {
         connected: 'Verbonden',
         notConnected: 'Niet verbonden',
         session: 'Sessie',
+        allSessions: 'Alle tijdblokken',
+        refresh: 'Ververs',
         music: 'Muziek',
         noMusic: 'Geen muziek',
         musicPlaying: 'Speelt',
@@ -833,6 +870,8 @@ function getRemoteHTML() {
         connected: 'Connected',
         notConnected: 'Not connected',
         session: 'Session',
+        allSessions: 'All sessions',
+        refresh: 'Refresh',
         music: 'Music',
         noMusic: 'No music',
         musicPlaying: 'Playing',
@@ -858,13 +897,19 @@ function getRemoteHTML() {
         connected: 'Verbunden',
         notConnected: 'Nicht verbunden',
         session: 'Sitzung',
+        allSessions: 'Alle Blöcke',
+        refresh: 'Aktualisieren',
         music: 'Musik',
         noMusic: 'Keine Musik',
         musicPlaying: 'Spielt',
         musicPaused: 'Angehalten'
       }
     };
-    const t = translations[lang];
+    
+    // Dynamische vertaling functie (update bij taal wijziging)
+    function getT() {
+      return translations[lang];
+    }
     
     let state = {
       presentation: null,
@@ -876,6 +921,8 @@ function getRemoteHTML() {
     let connected = false;
     let lastCommandTime = 0;
     let lastActiveSessionIdx = -1;
+    let lastSlideIdx = -1;
+    let savedSlidesScrollLeft = 0; // Bewaar scroll positie van slides container
     const DEBOUNCE_MS = 300;
     
     function connect() {
@@ -895,6 +942,10 @@ function getRemoteHTML() {
         const msg = JSON.parse(event.data);
         if (msg.type === 'state') {
           state = msg.data;
+          // Update taal als meegegeven door app
+          if (state.language && ['nl', 'en', 'de'].includes(state.language)) {
+            lang = state.language;
+          }
           render();
         }
       };
@@ -934,6 +985,13 @@ function getRemoteHTML() {
       return 0;
     }
     
+    function formatTime(seconds) {
+      if (!seconds && seconds !== 0) return '--:--';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return mins + ':' + (secs < 10 ? '0' : '') + secs;
+    }
+    
     function getSessionType(session) {
       if (session?.loop || session?.loopMode) return 'loop';
       if (session?.speakerMode || (!session?.audio?.url && !session?.audioTracks?.length)) return 'speaker';
@@ -941,6 +999,7 @@ function getRemoteHTML() {
     }
     
     function getMusicBarHTML() {
+      const t = translations[lang]; // Haal actuele vertaling op
       const musicInfo = state.musicInfo;
       const playIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
       const pauseIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
@@ -976,6 +1035,7 @@ function getRemoteHTML() {
     
     function render() {
       const app = document.getElementById('app');
+      const t = translations[lang]; // Haal actuele vertaling op
       
       if (!connected) {
         app.innerHTML = '<div class="no-presentation"><h2>' + t.disconnected + '</h2><p>' + t.reconnecting + '</p></div>';
@@ -983,7 +1043,7 @@ function getRemoteHTML() {
       }
       
       if (!state.presentation) {
-        app.innerHTML = '<div class="no-presentation"><h2>' + t.noPresentation + '</h2><p>' + t.openPresentation + '</p></div>';
+        app.innerHTML = '<div class="no-presentation"><h2>' + t.noPresentation + '</h2><p>' + t.openPresentation + '</p><button class="refresh-btn" onclick="location.reload()">↻ ' + t.refresh + '</button></div>';
         return;
       }
       
@@ -1057,16 +1117,28 @@ function getRemoteHTML() {
       const prevIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>';
       const nextIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
       
-      app.innerHTML = 
+      // Bewaar slides scroll positie voor render
+      const slidesContainer = document.querySelector('.active-session .slides');
+      if (slidesContainer) {
+        savedSlidesScrollLeft = slidesContainer.scrollLeft;
+      }
+      
+      app.innerHTML =
         '<div class="header">' +
           '<h1>' + t.title + '</h1>' +
           '<div class="title">' + (state.presentation.name || 'Presentatie') + '</div>' +
         '</div>' +
-        
+
+        // Grote pauzeer banner als niet speelt
+        (!state.isPlaying ? '<div class="paused-banner">⏸ ' + t.paused.toUpperCase() + '</div>' : '') +
+
         '<div class="status">' +
           '<span>' + t.slide + ' ' + (state.currentSlideIndex + 1) + ' ' + t.of + ' ' + slides.length + '</span>' +
-          '<span class="' + (state.isPlaying ? 'playing' : 'paused') + '">' + 
-            (state.isPlaying ? '● ' + t.playing : '● ' + t.paused) + 
+          '<span class="time">⏱ ' + formatTime(state.timeInfo?.elapsed) +
+            (state.timeInfo?.total ? ' / ' + formatTime(state.timeInfo.total) : '') +
+          '</span>' +
+          '<span class="' + (state.isPlaying ? 'playing' : 'paused') + '">' +
+            (state.isPlaying ? '● ' + t.playing : '● ' + t.paused) +
           '</span>' +
         '</div>' +
         
@@ -1074,7 +1146,7 @@ function getRemoteHTML() {
         '<div class="active-session">' + activeSessionHTML + '</div>' +
         
         // Scheiding
-        '<div class="section-divider"><span>Alle tijdblokken</span></div>' +
+        '<div class="section-divider"><span>' + t.allSessions + '</span></div>' +
         
         // Alle tijdblokken (actieve is gemarkeerd)
         '<div class="all-sessions">' + allSessionsHTML + '</div>' +
@@ -1104,11 +1176,31 @@ function getRemoteHTML() {
       
       // Event delegation voor robuustere klik-handling
       attachEventListeners();
-      
+
       // Scroll naar boven bij sessie wissel (actief tijdblok staat bovenaan)
       if (lastActiveSessionIdx !== currentSessionIdx) {
         lastActiveSessionIdx = currentSessionIdx;
         window.scrollTo(0, 0);
+      }
+      
+      // Herstel of center slides scroll positie
+      const newSlidesContainer = document.querySelector('.active-session .slides');
+      if (newSlidesContainer) {
+        if (lastSlideIdx !== state.currentSlideIndex) {
+          // Slide wissel: center de actieve slide
+          lastSlideIdx = state.currentSlideIndex;
+          const activeSlide = newSlidesContainer.querySelector('.slide.active');
+          if (activeSlide) {
+            const slideLeft = activeSlide.offsetLeft;
+            const slideWidth = activeSlide.offsetWidth;
+            const containerWidth = newSlidesContainer.offsetWidth;
+            const targetScroll = slideLeft - (containerWidth / 2) + (slideWidth / 2);
+            newSlidesContainer.scrollLeft = Math.max(0, targetScroll);
+          }
+        } else {
+          // Geen slide wissel: herstel vorige scroll positie
+          newSlidesContainer.scrollLeft = savedSlidesScrollLeft;
+        }
       }
     }
 

@@ -11,7 +11,7 @@ export default function Controller({
   setIsPlaying,
   onClose
 }) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [displays, setDisplays] = useState([])
   const [selectedDisplay, setSelectedDisplay] = useState(null)
   const [presentationWindowOpen, setPresentationWindowOpen] = useState(false)
@@ -332,7 +332,7 @@ export default function Controller({
   }, [currentSlideIndex, slides, currentSessionIndex, sessionSlideRanges, settings.defaultSlideDuration])
 
   // CENTRALE LOGICA: Bereken totale sessie duur
-  // Prioriteit: handmatige duur > audio duur > (slides * slideDuration)
+  // Prioriteit: handmatige duur > video duur > audio duur > (slides * slideDuration)
   const getSessionTotalDuration = useCallback((sessionIdx) => {
     const range = sessionSlideRanges[sessionIdx]
     if (!range) return null
@@ -344,6 +344,9 @@ export default function Controller({
     // Check of er een handmatig ingestelde sessie duur is
     // Dit is wanneer de gebruiker expliciet een duur heeft ingesteld
     const manualDuration = session.manualDuration // in seconden
+    
+    // Video compilatie duur (uit manifest, bv voor videoMode sessies)
+    const videoDur = session.videoDuration || 0
     
     // Audio duur (indien beschikbaar)
     const audioDur = audioDurations[sessionIdx] || 0
@@ -361,10 +364,16 @@ export default function Controller({
       return null
     }
     
-    // Prioriteit: handmatige duur > audio duur > slides duur
+    // Prioriteit: handmatige duur > video duur > audio duur > slides duur
     if (manualDuration && manualDuration > 0) {
       console.log(`[Controller] Session ${sessionIdx} using manual duration: ${manualDuration}s`)
       return manualDuration
+    }
+    
+    // Video compilatie duur uit manifest (belangrijker dan audio voor video sessies)
+    if (videoDur > 0) {
+      console.log(`[Controller] Session ${sessionIdx} using video duration: ${videoDur}s`)
+      return videoDur
     }
     
     if (audioDur > 0) {
@@ -946,15 +955,24 @@ export default function Controller({
       
       const musicInfo = getCurrentMusicInfo()
       
+      // Tijdinfo voor huidige sessie
+      const currentSessionIdx = getSessionIndexForSlide(currentSlideIndex)
+      const timeInfo = {
+        elapsed: sessionElapsedTime[currentSessionIdx] || 0,
+        total: getSessionTotalDuration(currentSessionIdx) || null
+      }
+      
       window.electronAPI.updateRemoteState({
         presentation: remotePresentation,
         currentSlideIndex,
         isPlaying,
         sessionSlideRanges,
-        musicInfo
+        musicInfo,
+        language,
+        timeInfo
       })
     }
-  }, [presentation, slides, slideThumbnails, currentSlideIndex, isPlaying, sessionSlideRanges, getCurrentMusicInfo])
+  }, [presentation, slides, slideThumbnails, currentSlideIndex, isPlaying, sessionSlideRanges, getCurrentMusicInfo, language, sessionElapsedTime, getSessionTotalDuration, getSessionIndexForSlide])
 
   // Luister naar remote control commando's
   useEffect(() => {

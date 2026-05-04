@@ -105,7 +105,12 @@ export default function Presentation({
   // Video time update handler - stop bij eindtijd (trim)
   const handleVideoTimeUpdate = (e) => {
     const currentSlide = presentation?.slides[displayedSlideIndex]
+    // Debug log elke 5 seconden
+    if (Math.floor(e.target.currentTime) % 5 === 0 && e.target.currentTime > 0) {
+      console.log('[Presentation] Video time:', e.target.currentTime.toFixed(2), '/ videoEnd:', currentSlide?.videoEnd)
+    }
     if (currentSlide?.videoEnd && e.target.currentTime >= currentSlide.videoEnd) {
+      console.log('[Presentation] Reached videoEnd, stopping at', e.target.currentTime.toFixed(2))
       e.target.pause()
       // Trigger video ended
       handleVideoEnded()
