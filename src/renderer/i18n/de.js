@@ -140,4 +140,20 @@ export const de = {
     minutes: 'm',
     seconds: 's',
   },
+
+  // Tour
+  tour: {
+    startTour: 'Rundgang starten',
+    back: 'Zurück',
+    close: 'Schließen',
+    finish: 'Fertig',
+    next: 'Weiter',
+    skip: 'Überspringen',
+    filmstrip: 'Hier sehen Sie alle Folien der Präsentation. Klicken Sie auf eine Folie, um direkt dorthin zu springen. Der orangefarbene Rand zeigt die aktuelle Folie.',
+    remoteButton: 'Klicken Sie hier, um ein Handy oder Tablet als Fernbedienung zu verbinden. Scannen Sie den QR-Code mit Ihrem Gerät, um die Präsentation fernzusteuern.',
+    timeblocks: 'Dies sind die Zeitblöcke Ihrer Präsentation. Jeder Block kann eigene Einstellungen wie Musik, Dauer oder Referentenmodus haben. Klicken Sie auf einen Block, um dorthin zu springen.',
+    controls: 'Mit diesen Steuerelementen bedienen Sie die Präsentation: Abspielen/Pause, zur nächsten oder vorherigen Folie, oder zum nächsten Zeitblock. Sie können auch Tastenkürzel verwenden (Leertaste, Pfeiltasten, usw.).',
+    displaySelect: 'Wählen Sie hier, auf welchem Bildschirm die Präsentation angezeigt werden soll. Wählen Sie einen externen Bildschirm oder Beamer.',
+    startPresentation: 'Klicken Sie hier, um die Präsentation auf dem ausgewählten externen Bildschirm zu starten. Das Präsentationsfenster öffnet sich im Vollbildmodus auf dem Beamer.',
+  },
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import Joyride, { STATUS } from 'react-joyride'
 import MusicPlayer from './MusicPlayer'
 import RemoteQRCode from './RemoteQRCode'
 import { useTranslation } from '../i18n'
@@ -32,6 +33,8 @@ export default function Controller({
   /** Na volgende/vorige slide: play aanzetten (na sessie-effect, overschrijft pause-default) */
   const autoPlayAfterSlideChangeRef = useRef(false)
   const [wallNow, setWallNow] = useState(() => new Date())
+  const [runTour, setRunTour] = useState(false)
+  const [tourStepIndex, setTourStepIndex] = useState(0)
 
   // Sync refs met state voor gebruik in event handlers
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
@@ -141,6 +144,78 @@ export default function Controller({
     const secs = Math.floor(seconds % 60)
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
+
+  // Tour stappen
+  const tourSteps = useMemo(() => [
+    {
+      target: '#filmstrip',
+      content: t('tour.filmstrip'),
+      placement: 'top',
+      disableBeacon: true,
+    },
+    {
+      target: '#remote-button',
+      content: t('tour.remoteButton'),
+      placement: 'bottom',
+    },
+    {
+      target: '#timeblocks-panel',
+      content: t('tour.timeblocks'),
+      placement: 'left',
+    },
+    {
+      target: '#playback-controls',
+      content: t('tour.controls'),
+      placement: 'top',
+    },
+    {
+      target: '#display-select',
+      content: t('tour.displaySelect'),
+      placement: 'bottom',
+    },
+    {
+      target: '#start-presentation-button',
+      content: t('tour.startPresentation'),
+      placement: 'bottom',
+    },
+  ], [t])
+
+  // Tour callback handler
+  const handleTourCallback = useCallback((data) => {
+    const { status, index, action, type } = data
+    
+    // Als remote knop wordt geklikt in stap 2, open modal en ga naar volgende stap
+    if (index === 1 && action === 'next' && type === 'step:after') {
+      setShowRemoteQR(true)
+      // Wacht even tot modal open is, dan door naar volgende stap
+      setTimeout(() => {
+        setTourStepIndex(2)
+      }, 300)
+    }
+    
+    // Sluit modal als we verder gaan na stap 2
+    if (index === 2 && type === 'step:before') {
+      setShowRemoteQR(false)
+    }
+    
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+      setRunTour(false)
+      setTourStepIndex(0)
+      setShowRemoteQR(false)
+      // Onthoud dat tour bekeken is
+      localStorage.setItem('farewell-tour-completed', 'true')
+    }
+  }, [])
+
+  // Check bij eerste gebruik of tour moet starten
+  useEffect(() => {
+    const tourCompleted = localStorage.getItem('farewell-tour-completed')
+    if (!tourCompleted && presentation) {
+      // Start tour na korte delay zodat UI geladen is
+      const timer = setTimeout(() => setRunTour(true), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [presentation])
 
   // Debug: log sessie data bij laden
   useEffect(() => {
@@ -1114,6 +1189,7 @@ export default function Controller({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
+            id="remote-button"
             type="button"
             onClick={() => setShowRemoteQR(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white transition"
@@ -1125,6 +1201,7 @@ export default function Controller({
             <span className="hidden sm:inline">{t('remote.openRemote')}</span>
           </button>
           <select
+            id="display-select"
             value={selectedDisplay || ''}
             onChange={(e) => setSelectedDisplay(Number(e.target.value))}
             className="bg-slate-800 text-white px-2 py-1.5 rounded-lg text-xs max-w-[200px]"
@@ -1136,6 +1213,7 @@ export default function Controller({
             ))}
           </select>
           <button
+            id="start-presentation-button"
             type="button"
             onClick={presentationWindowOpen ? closePresentationWindow : openPresentationWindow}
             className={`flex items-center gap-2 shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition shadow-sm ${
@@ -1313,7 +1391,7 @@ export default function Controller({
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-2 shrink-0">
+            <div id="playback-controls" className="flex flex-col items-center gap-2 shrink-0">
               <div className="flex items-center justify-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -1417,7 +1495,7 @@ export default function Controller({
             </div>
           </div>
 
-          <aside className="w-72 shrink-0 sm:w-80 lg:w-[24%] lg:min-w-[18rem] lg:max-w-[22rem] flex flex-col border-l border-slate-800 bg-[#0c0c0c] min-h-0">
+          <aside id="timeblocks-panel" className="w-72 shrink-0 sm:w-80 lg:w-[24%] lg:min-w-[18rem] lg:max-w-[22rem] flex flex-col border-l border-slate-800 bg-[#0c0c0c] min-h-0">
             <h2 className="text-sm font-medium text-slate-100 px-3 pt-3 pb-2 shrink-0 border-b border-slate-800">
               {t('controller.timeBlocks')}
             </h2>
@@ -1505,6 +1583,7 @@ export default function Controller({
         </div>
         {/* Filmstrook — alle dia's (groter, PowerPoint-achtig + dia-nummer) */}
         <div
+          id="filmstrip"
           className="flex-shrink-0 min-h-[14rem] h-[28vh] max-h-[min(360px,36vh)] border-t border-slate-800 bg-[#0a0a0a] flex flex-col gap-1.5 py-2 pl-3 pr-2"
           style={{ willChange: 'scroll-position' }}
         >
@@ -1561,6 +1640,72 @@ export default function Controller({
       {showRemoteQR && (
         <RemoteQRCode onClose={() => setShowRemoteQR(false)} />
       )}
+
+      {/* Tour */}
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        stepIndex={tourStepIndex}
+        continuous
+        showSkipButton
+        showProgress
+        disableOverlayClose
+        callback={handleTourCallback}
+        locale={{
+          back: t('tour.back'),
+          close: t('tour.close'),
+          last: t('tour.finish'),
+          next: t('tour.next'),
+          skip: t('tour.skip'),
+        }}
+        styles={{
+          options: {
+            primaryColor: '#f97316',
+            zIndex: 10000,
+            arrowColor: '#1e293b',
+            backgroundColor: '#1e293b',
+            textColor: '#f1f5f9',
+          },
+          tooltip: {
+            borderRadius: 12,
+            padding: 20,
+          },
+          buttonNext: {
+            backgroundColor: '#f97316',
+            borderRadius: 8,
+            padding: '8px 16px',
+          },
+          buttonBack: {
+            color: '#94a3b8',
+            marginRight: 10,
+          },
+          buttonSkip: {
+            color: '#64748b',
+          },
+        }}
+        floaterProps={{
+          styles: {
+            floater: {
+              filter: 'drop-shadow(0 4px 20px rgba(0, 0, 0, 0.4))',
+            },
+          },
+        }}
+      />
+
+      {/* Help knop */}
+      <button
+        type="button"
+        onClick={() => {
+          setTourStepIndex(0)
+          setRunTour(true)
+        }}
+        className="fixed bottom-4 right-4 w-10 h-10 bg-slate-700 hover:bg-slate-600 text-white rounded-full shadow-lg flex items-center justify-center transition z-50"
+        title={t('tour.startTour')}
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </button>
     </div>
   )
 

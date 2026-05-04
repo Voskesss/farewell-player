@@ -140,4 +140,20 @@ export const nl = {
     minutes: 'm',
     seconds: 's',
   },
+
+  // Tour
+  tour: {
+    startTour: 'Rondleiding starten',
+    back: 'Terug',
+    close: 'Sluiten',
+    finish: 'Klaar',
+    next: 'Volgende',
+    skip: 'Overslaan',
+    filmstrip: 'Hier zie je alle slides van de presentatie. Klik op een slide om direct daarheen te springen. De oranje rand toont de huidige slide.',
+    remoteButton: 'Klik hier om een telefoon of tablet als afstandsbediening te verbinden. Scan de QR-code met je apparaat om de presentatie op afstand te bedienen.',
+    timeblocks: 'Dit zijn de tijdblokken van je presentatie. Elk blok kan eigen instellingen hebben zoals muziek, duur of speaker-modus. Klik op een blok om daarheen te springen.',
+    controls: 'Hiermee bedien je de presentatie: afspelen/pauzeren, naar de volgende of vorige slide, of naar het volgende tijdblok. Je kunt ook sneltoetsen gebruiken (Space, pijltjes, etc.).',
+    displaySelect: 'Kies hier op welk scherm je de presentatie wilt tonen. Selecteer een extern scherm of beamer.',
+    startPresentation: 'Klik hier om de presentatie te starten op het geselecteerde externe scherm. Het presentatievenster opent fullscreen op de beamer.',
+  },
 }

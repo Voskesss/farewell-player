@@ -140,4 +140,20 @@ export const en = {
     minutes: 'm',
     seconds: 's',
   },
+
+  // Tour
+  tour: {
+    startTour: 'Start tour',
+    back: 'Back',
+    close: 'Close',
+    finish: 'Done',
+    next: 'Next',
+    skip: 'Skip',
+    filmstrip: 'Here you see all slides of the presentation. Click on a slide to jump directly to it. The orange border shows the current slide.',
+    remoteButton: 'Click here to connect a phone or tablet as a remote control. Scan the QR code with your device to control the presentation remotely.',
+    timeblocks: 'These are the time blocks of your presentation. Each block can have its own settings like music, duration, or speaker mode. Click on a block to jump to it.',
+    controls: 'Use these controls to operate the presentation: play/pause, go to the next or previous slide, or to the next time block. You can also use keyboard shortcuts (Space, arrows, etc.).',
+    displaySelect: 'Choose here which screen to show the presentation on. Select an external screen or projector.',
+    startPresentation: 'Click here to start the presentation on the selected external screen. The presentation window opens fullscreen on the projector.',
+  },
 }
