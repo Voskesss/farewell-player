@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename)
 let server = null
 let wss = null
 let controllerWindow = null
+let actualPort = null
 let currentState = {
   presentation: null,
   currentSlideIndex: 0,
@@ -30,6 +31,44 @@ export function getAccessPin() {
   return accessPin
 }
 
+export function getActualPort() {
+  return actualPort
+}
+
+// Vind een vrije poort
+function findFreePort(startPort, maxAttempts = 10) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0
+    
+    function tryPort(port) {
+      const testServer = createServer()
+      
+      testServer.once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          attempts++
+          if (attempts < maxAttempts) {
+            tryPort(port + 1)
+          } else {
+            reject(new Error(`Geen vrije poort gevonden na ${maxAttempts} pogingen`))
+          }
+        } else {
+          reject(err)
+        }
+      })
+      
+      testServer.once('listening', () => {
+        testServer.close(() => {
+          resolve(port)
+        })
+      })
+      
+      testServer.listen(port, '0.0.0.0')
+    }
+    
+    tryPort(startPort)
+  })
+}
+
 // Krijg lokale IP-adressen
 export function getLocalIPs() {
   const nets = networkInterfaces()
@@ -47,12 +86,23 @@ export function getLocalIPs() {
 }
 
 // Start de remote server
-export function startRemoteServer(mainWindow, port = 3001) {
+export async function startRemoteServer(mainWindow, preferredPort = 3001) {
   controllerWindow = mainWindow
   
   // Genereer nieuwe PIN bij opstarten
   generatePin()
   console.log('[RemoteServer] Access PIN:', accessPin)
+  
+  // Vind vrije poort
+  try {
+    actualPort = await findFreePort(preferredPort)
+    if (actualPort !== preferredPort) {
+      console.log(`[RemoteServer] Port ${preferredPort} in use, using ${actualPort}`)
+    }
+  } catch (err) {
+    console.error('[RemoteServer] Could not find free port:', err)
+    actualPort = preferredPort // Probeer toch de gewenste poort
+  }
   
   const app = express()
   
@@ -115,13 +165,14 @@ export function startRemoteServer(mainWindow, port = 3001) {
     })
   })
   
-  server.listen(port, '0.0.0.0', () => {
-    const ips = getLocalIPs()
-    console.log(`[RemoteServer] Running on port ${port}`)
-    console.log('[RemoteServer] Available at:', ips.map(ip => `http://${ip}:${port}`))
+  return new Promise((resolve) => {
+    server.listen(actualPort, '0.0.0.0', () => {
+      const ips = getLocalIPs()
+      console.log(`[RemoteServer] Running on port ${actualPort}`)
+      console.log('[RemoteServer] Available at:', ips.map(ip => `http://${ip}:${actualPort}`))
+      resolve({ port: actualPort, ips })
+    })
   })
-  
-  return { port, ips: getLocalIPs() }
 }
 
 // Stop de server
@@ -409,13 +460,36 @@ function getRemoteHTML() {
       font-size: 11px;
     }
     
-    /* Andere tijdblokken - compact */
-    .other-sessions {
+    /* Scheiding tussen actief tijdblok en lijst */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      margin: 12px 0;
+      color: #64748b;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .section-divider::before,
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #334155;
+    }
+    
+    .section-divider span {
+      padding: 0 10px;
+    }
+    
+    /* Alle tijdblokken - compact */
+    .all-sessions {
       display: flex;
       flex-direction: column;
       gap: 6px;
       margin-bottom: 16px;
-      max-height: 25vh;
+      max-height: 30vh;
       overflow-y: auto;
     }
     
@@ -428,6 +502,11 @@ function getRemoteHTML() {
       border-left: 4px solid;
       cursor: pointer;
       font-size: 13px;
+    }
+    
+    .session-compact.active {
+      box-shadow: 0 0 0 2px white;
+      font-weight: 600;
     }
     
     .session-compact:active {
@@ -950,11 +1029,10 @@ function getRemoteHTML() {
         '</div>';
       }
       
-      // Bouw andere tijdblokken HTML (compact, zonder slides)
-      let otherSessionsHTML = '';
+      // Bouw alle tijdblokken HTML (compact, actieve is gemarkeerd)
+      let allSessionsHTML = '';
       state.sessionSlideRanges.forEach((range, idx) => {
-        if (idx === currentSessionIdx) return; // Skip actief tijdblok
-        
+        const isActive = idx === currentSessionIdx;
         const session = range.session || {};
         const name = session.name || t.session + ' ' + (idx + 1);
         const slideCount = range.end - range.start + 1;
@@ -966,7 +1044,8 @@ function getRemoteHTML() {
         else if (sessionType === 'speaker') badge = '<span class="session-badge-small">🎤</span>';
         
         const typeClass = sessionType !== 'normal' ? sessionType : '';
-        otherSessionsHTML += '<div class="session-compact ' + colorClass + ' ' + typeClass + '" data-session="' + idx + '">' +
+        const activeClass = isActive ? 'active' : '';
+        allSessionsHTML += '<div class="session-compact ' + colorClass + ' ' + typeClass + ' ' + activeClass + '" data-session="' + idx + '">' +
           '<span class="session-name">' + name + badge + '</span>' +
           '<span class="session-info">' + slideCount + ' ' + t.slides + '</span>' +
         '</div>';
@@ -994,8 +1073,11 @@ function getRemoteHTML() {
         // Actief tijdblok bovenaan met slides
         '<div class="active-session">' + activeSessionHTML + '</div>' +
         
-        // Andere tijdblokken compact
-        (otherSessionsHTML ? '<div class="other-sessions">' + otherSessionsHTML + '</div>' : '') +
+        // Scheiding
+        '<div class="section-divider"><span>Alle tijdblokken</span></div>' +
+        
+        // Alle tijdblokken (actieve is gemarkeerd)
+        '<div class="all-sessions">' + allSessionsHTML + '</div>' +
         
         '<div class="main-controls">' +
           '<button class="btn btn-nav" data-action="prevSlide">' + prevIcon + '</button>' +

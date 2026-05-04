@@ -4,7 +4,7 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { getLogger } from './logger.js'
 import { initAutoUpdater, quitAndInstall, retryUpdate } from './updater.js'
-import { startRemoteServer, stopRemoteServer, updateRemoteState, getLocalIPs, getAccessPin } from './remoteServer.js'
+import { startRemoteServer, stopRemoteServer, updateRemoteState, getLocalIPs, getAccessPin, getActualPort } from './remoteServer.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -266,7 +266,7 @@ ipcMain.handle('get-app-version', async () => {
 // Remote server info
 ipcMain.handle('get-remote-server-info', async () => {
   return {
-    port: 3001,
+    port: getActualPort() || 3001,
     ips: getLocalIPs(),
     pin: getAccessPin()
   }
@@ -278,7 +278,7 @@ ipcMain.on('update-remote-state', (event, state) => {
 })
 
 // App lifecycle
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Initialiseer logger
   logger = getLogger()
   logger.logAppEvent('App started', { version: app.getVersion() })
@@ -330,7 +330,7 @@ app.whenReady().then(() => {
   
   // Start remote control server
   try {
-    remoteServerInfo = startRemoteServer(controllerWindow, 3001)
+    remoteServerInfo = await startRemoteServer(controllerWindow, 3001)
     logger.info('Remote server started', remoteServerInfo)
   } catch (err) {
     logger.error('Failed to start remote server', { error: err.message })
