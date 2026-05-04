@@ -22,6 +22,7 @@ export default function Controller({
   const [sessionElapsedTime, setSessionElapsedTime] = useState({}) // Elapsed time per sessie in seconden
   const [audioDurations, setAudioDurations] = useState({}) // Audio duur per sessie
   const [audioEnded, setAudioEnded] = useState({}) // Track of audio klaar is per sessie
+  const [currentTrackInfo, setCurrentTrackInfo] = useState({}) // Huidige track info per sessie
   const audioRefs = useRef({})
   const autoPlayTimerRef = useRef(null)
   const videoRef = useRef(null)
@@ -980,21 +981,24 @@ export default function Controller({
     const sessionIdx = getSessionIndexForSlide(currentSlideIndex)
     const range = sessionSlideRanges[sessionIdx]
     const session = range?.session
-    
+
     if (!session) return null
-    
+
     // Check voor audio tracks
     const hasAudio = session.audio?.url || session.audioTracks?.length > 0
     if (!hasAudio) return null
-    
-    // Haal track naam op
+
+    // Haal track naam op - gebruik currentTrackInfo als beschikbaar
+    const trackInfo = currentTrackInfo[sessionIdx]
     let trackName = null
-    if (session.audioTracks?.length > 0) {
+    if (trackInfo?.name) {
+      trackName = trackInfo.name
+    } else if (session.audioTracks?.length > 0) {
       trackName = session.audioTracks[0].name || session.audioTracks[0].file?.split('/').pop()
     } else if (session.audio?.file) {
       trackName = session.audio.file.split('/').pop()?.replace(/\.(mp3|wav|m4a|ogg)$/i, '')
     }
-    
+
     // Check of audio speelt
     const audioElement = audioRefs.current[sessionIdx]
     const isMusicPlaying = audioElement && !audioElement.paused && !audioElement.ended
@@ -1004,7 +1008,7 @@ export default function Controller({
       isPlaying: isMusicPlaying,
       sessionIndex: sessionIdx
     }
-  }, [currentSlideIndex, sessionSlideRanges, getSessionIndexForSlide])
+  }, [currentSlideIndex, sessionSlideRanges, getSessionIndexForSlide, currentTrackInfo])
   
   // Sync state naar remote control
   useEffect(() => {
@@ -1577,6 +1581,9 @@ export default function Controller({
                   }}
                   onAudioEnded={() => {
                     setAudioEnded((prev) => ({ ...prev, [uiSessionIndex]: true }))
+                  }}
+                  onTrackChange={(trackInfo) => {
+                    setCurrentTrackInfo((prev) => ({ ...prev, [uiSessionIndex]: trackInfo }))
                   }}
                 />
               )}

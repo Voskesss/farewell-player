@@ -364,11 +364,11 @@ function getRemoteHTML() {
     
     .header {
       text-align: center;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
     }
     
     .header h1 {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
       color: #94a3b8;
     }
@@ -385,9 +385,9 @@ function getRemoteHTML() {
     .status {
       display: flex;
       justify-content: center;
-      gap: 16px;
-      margin-bottom: 16px;
-      font-size: 13px;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
       color: #94a3b8;
     }
     
@@ -482,9 +482,9 @@ function getRemoteHTML() {
     .section-divider {
       display: flex;
       align-items: center;
-      margin: 12px 0;
+      margin: 6px 0;
       color: #64748b;
-      font-size: 11px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -505,9 +505,9 @@ function getRemoteHTML() {
     .all-sessions {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      margin-bottom: 16px;
-      max-height: 30vh;
+      gap: 4px;
+      margin-bottom: 10px;
+      max-height: 22vh;
       overflow-y: auto;
     }
     
@@ -515,11 +515,11 @@ function getRemoteHTML() {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border-left: 4px solid;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border-left: 3px solid;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
     }
     
     .session-compact.active {
@@ -605,8 +605,8 @@ function getRemoteHTML() {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 20px;
-      margin-bottom: 20px;
+      gap: 16px;
+      margin-bottom: 12px;
     }
     
     .btn {
@@ -628,8 +628,8 @@ function getRemoteHTML() {
     }
     
     .btn-large {
-      width: 72px;
-      height: 72px;
+      width: 64px;
+      height: 64px;
     }
     
     .btn-play {
@@ -647,8 +647,8 @@ function getRemoteHTML() {
     }
     
     .btn-nav {
-      width: 56px;
-      height: 56px;
+      width: 48px;
+      height: 48px;
       background: #334155;
       color: white;
     }
@@ -662,18 +662,18 @@ function getRemoteHTML() {
     .nav-row {
       display: flex;
       justify-content: center;
-      gap: 10px;
-      margin-bottom: 16px;
+      gap: 8px;
+      margin-bottom: 10px;
     }
     
     .btn-session {
       flex: 1;
-      max-width: 150px;
-      height: 44px;
+      max-width: 140px;
+      height: 38px;
       background: #334155;
       color: white;
-      font-size: 12px;
-      border-radius: 10px;
+      font-size: 11px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -731,31 +731,23 @@ function getRemoteHTML() {
       background: #2563eb;
     }
     
-    /* Muziek panel */
+    /* Muziek panel - compact onder actieve sessie */
     .music-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
       background: #1e293b;
-      border-top: 1px solid #334155;
-      padding: 8px 12px;
-      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      border-radius: 8px;
+      padding: 6px 10px;
+      margin-top: 8px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      z-index: 100;
-      transition: transform 0.3s ease;
+      gap: 8px;
     }
-    
+
     .music-bar.no-music {
-      background: #0f172a;
-      padding: 6px 12px;
-      padding-bottom: max(6px, env(safe-area-inset-bottom));
+      display: none;
     }
     
     .music-icon {
-      font-size: 18px;
+      font-size: 14px;
     }
     
     .music-info {
@@ -764,7 +756,7 @@ function getRemoteHTML() {
     }
     
     .music-track {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -781,8 +773,8 @@ function getRemoteHTML() {
     }
     
     .music-btn {
-      width: 40px;
-      height: 40px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: #334155;
       border: none;
@@ -798,14 +790,10 @@ function getRemoteHTML() {
     }
     
     .music-btn svg {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
     }
     
-    /* Ruimte voor muziek bar */
-    .footer {
-      margin-bottom: 60px;
-    }
   </style>
 </head>
 <body>
@@ -1154,6 +1142,9 @@ function getRemoteHTML() {
         // Actief tijdblok bovenaan met slides
         '<div class="active-session">' + activeSessionHTML + '</div>' +
         
+        // Muziek bar (compact, onder actieve sessie)
+        getMusicBarHTML() +
+        
         // Scheiding
         '<div class="section-divider"><span>' + t.allSessions + '</span></div>' +
         
@@ -1178,10 +1169,7 @@ function getRemoteHTML() {
             '<span class="connection-dot ' + (connected ? '' : 'disconnected') + '"></span>' +
             '<span>' + (connected ? t.connected : t.notConnected) + '</span>' +
           '</div>' +
-        '</div>' +
-        
-        // Muziek bar
-        getMusicBarHTML();
+        '</div>';
       
       // Event delegation voor robuustere klik-handling
       attachEventListeners();

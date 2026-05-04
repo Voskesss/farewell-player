@@ -10,6 +10,7 @@ export default function MusicPlayer({
   onAudioRefChange,  // Callback om audio element ref door te geven aan controller
   onAudioDuration,   // Callback wanneer audio duur bekend is
   onAudioEnded,      // Callback wanneer audio klaar is
+  onTrackChange,     // Callback wanneer track verandert (naam, index)
   shouldLoopAudio = false  // True als handmatige duur > audio duur
 }) {
   const [activeTab, setActiveTab] = useState('embedded') // embedded, local
@@ -32,6 +33,18 @@ export default function MusicPlayer({
   
   // Debug logging
   console.log('MusicPlayer session:', session?.id, 'audioTracks:', session?.audioTracks, 'audio:', session?.audio, 'embeddedTracks:', embeddedTracks)
+
+  // Geef track info door bij verandering
+  useEffect(() => {
+    if (onTrackChange && currentTrack) {
+      const trackName = currentTrack.name || currentTrack.file?.split('/').pop()?.replace(/\.(mp3|wav|m4a|ogg)$/i, '') || 'Muziek'
+      onTrackChange({
+        name: trackName,
+        index: currentTrackIndex,
+        total: embeddedTracks.length
+      })
+    }
+  }, [currentTrackIndex, currentTrack, embeddedTracks.length, onTrackChange])
 
   // Lokaal bestand selecteren
   const handleSelectLocalFile = async () => {
