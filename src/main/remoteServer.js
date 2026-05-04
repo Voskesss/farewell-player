@@ -120,8 +120,12 @@ export async function startRemoteServer(mainWindow, preferredPort = 3001) {
     res.send(getRemoteHTML())
   })
   
-  // API endpoint voor huidige state
+  // API endpoint voor huidige state (alleen met juiste PIN, zelfde als WebSocket)
   app.get('/api/state', (req, res) => {
+    const pin = req.query.pin
+    if (pin !== accessPin) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
     res.json(currentState)
   })
   
@@ -143,8 +147,15 @@ export async function startRemoteServer(mainWindow, preferredPort = 3001) {
     
     console.log('[RemoteServer] Client connected (authenticated)')
     
-    // Stuur huidige state naar nieuwe client
-    ws.send(JSON.stringify({ type: 'state', data: currentState }))
+    // Stuur huidige state naar nieuwe client (direct + herhaald: sommige mobiele browsers missen het eerste frame na redirect)
+    const pushState = () => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'state', data: currentState }))
+      }
+    }
+    pushState()
+    setTimeout(pushState, 200)
+    setTimeout(pushState, 800)
     
     ws.on('message', (message) => {
       try {
@@ -305,7 +316,8 @@ function getPinPageHTML() {
       e.preventDefault();
       const pin = Array.from(inputs).map(i => i.value).join('');
       if (pin.length === 4) {
-        window.location.href = '/remote?pin=' + pin;
+        // replace i.p.v. href: voorkomt back-cache / oude pagina die niet opnieuw verbindt
+        window.location.replace('/remote?pin=' + encodeURIComponent(pin));
       }
     }
   </script>
@@ -848,7 +860,10 @@ function getRemoteHTML() {
         music: 'Muziek',
         noMusic: 'Geen muziek',
         musicPlaying: 'Speelt',
-        musicPaused: 'Gestopt'
+        musicPaused: 'Gestopt',
+        sync: 'Synchroniseren…',
+        autoWaiting: 'We proberen automatisch verbinding te maken. Even geduld…',
+        refreshToConnect: 'Ververs om te verbinden',
       },
       en: {
         title: 'Farewell Remote',
@@ -875,7 +890,10 @@ function getRemoteHTML() {
         music: 'Music',
         noMusic: 'No music',
         musicPlaying: 'Playing',
-        musicPaused: 'Paused'
+        musicPaused: 'Paused',
+        sync: 'Syncing…',
+        autoWaiting: 'Trying to connect automatically. Please wait…',
+        refreshToConnect: 'Refresh to connect',
       },
       de: {
         title: 'Farewell Remote',
@@ -902,7 +920,10 @@ function getRemoteHTML() {
         music: 'Musik',
         noMusic: 'Keine Musik',
         musicPlaying: 'Spielt',
-        musicPaused: 'Angehalten'
+        musicPaused: 'Angehalten',
+        sync: 'Synchronisiere…',
+        autoWaiting: 'Verbindung wird automatisch hergestellt. Bitte warten…',
+        refreshToConnect: 'Aktualisieren zum Verbinden',
       }
     };
     
@@ -919,48 +940,178 @@ function getRemoteHTML() {
     };
     let ws = null;
     let connected = false;
+    let hasEverConnected = false;
+    let reconnectTimer = null;
+    let reconnectDelay = 800;
+    const maxReconnectDelay = 12000;
+    let presentationPollTimer = null;
+    let connectSeq = 0;
     let lastCommandTime = 0;
     let lastActiveSessionIdx = -1;
     let lastSlideIdx = -1;
     let savedSlidesScrollLeft = 0; // Bewaar scroll positie van slides container
     const DEBOUNCE_MS = 300;
     
-    function connect() {
-      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // Haal PIN uit URL query string
+    function getPinFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
-      const pin = urlParams.get('pin') || '';
-      ws = new WebSocket(protocol + '//' + location.host + '?pin=' + pin);
-      
-      ws.onopen = () => {
-        connected = true;
-        console.log('Connected to server');
+      return urlParams.get('pin') || '';
+    }
+    
+    function stopPresentationPoll() {
+      if (presentationPollTimer) {
+        clearInterval(presentationPollTimer);
+        presentationPollTimer = null;
+      }
+    }
+    
+    function startPresentationPoll(pin) {
+      stopPresentationPoll();
+      if (!pin) return;
+      presentationPollTimer = setInterval(function () {
+        if (!connected || !ws || ws.readyState !== WebSocket.OPEN) return;
+        if (state.presentation) {
+          stopPresentationPoll();
+          return;
+        }
+        syncStateOnce();
+      }, 2000);
+    }
+    
+    function scheduleReconnect() {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(function () {
+        reconnectTimer = null;
+        connect();
+      }, reconnectDelay);
+      reconnectDelay = Math.min(Math.floor(reconnectDelay * 1.4), maxReconnectDelay);
+    }
+    
+    function resetReconnectBackoff() {
+      reconnectDelay = 800;
+    }
+    
+    function showConnectingUI() {
+      const app = document.getElementById('app');
+      const tr = translations[lang];
+      app.innerHTML =
+        '<div class="no-presentation">' +
+          '<h2>' + tr.connecting + '</h2>' +
+          '<p>' + tr.waitingPresentation + '</p>' +
+          '<p style="font-size:13px;color:#94a3b8;margin-top:14px;line-height:1.4">' + tr.autoWaiting + '</p>' +
+          '<p style="font-size:12px;color:#64748b;margin-top:10px">' + tr.sync + '</p>' +
+          '<button type="button" class="refresh-btn" style="margin-top:22px" onclick="location.reload()">↻ ' + tr.refreshToConnect + '</button>' +
+        '</div>';
+    }
+    
+    function connect() {
+      const pin = getPinFromUrl();
+      if (!pin) {
         render();
+        return;
+      }
+      
+      connectSeq++;
+      const seq = connectSeq;
+      
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      
+      if (ws) {
+        try {
+          ws.onopen = null;
+          ws.onmessage = null;
+          ws.onclose = null;
+          ws.onerror = null;
+          ws.close();
+        } catch (e) {}
+        ws = null;
+      }
+      
+      connected = false;
+      if (!hasEverConnected) {
+        showConnectingUI();
+      } else {
+        render();
+      }
+      
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var wsUrl = protocol + '//' + location.host + '/?pin=' + encodeURIComponent(pin);
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = function () {
+        if (seq !== connectSeq) return;
+        hasEverConnected = true;
+        connected = true;
+        resetReconnectBackoff();
+        console.log('[Remote] WebSocket open');
+        render();
+        startPresentationPoll(pin);
+        syncStateOnce();
+        setTimeout(function () {
+          if (seq === connectSeq && state && !state.presentation) syncStateOnce();
+        }, 400);
+        setTimeout(function () {
+          if (seq === connectSeq && state && !state.presentation) syncStateOnce();
+        }, 1200);
       };
       
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'state') {
-          state = msg.data;
-          // Update taal als meegegeven door app
-          if (state.language && ['nl', 'en', 'de'].includes(state.language)) {
-            lang = state.language;
+      ws.onmessage = function (event) {
+        if (seq !== connectSeq) return;
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'state') {
+            state = msg.data;
+            if (state.language && ['nl', 'en', 'de'].includes(state.language)) {
+              lang = state.language;
+            }
+            if (state.presentation) stopPresentationPoll();
+            render();
           }
-          render();
+        } catch (e) {
+          console.error('[Remote] onmessage:', e);
         }
       };
       
-      ws.onclose = () => {
+      ws.onclose = function () {
+        if (seq !== connectSeq) return;
         connected = false;
-        console.log('Disconnected, reconnecting...');
+        try {
+          ws.onopen = null;
+          ws.onmessage = null;
+          ws.onclose = null;
+          ws.onerror = null;
+        } catch (e) {}
+        ws = null;
+        console.log('[Remote] WebSocket closed, reconnect in ' + reconnectDelay + 'ms');
+        stopPresentationPoll();
         render();
-        setTimeout(connect, 2000);
+        scheduleReconnect();
       };
       
-      ws.onerror = (err) => {
-        console.error('WebSocket error:', err);
-        ws.close();
+      ws.onerror = function (err) {
+        if (seq !== connectSeq) return;
+        console.error('[Remote] WebSocket error:', err);
       };
+    }
+    
+    function syncStateOnce() {
+      var pin = getPinFromUrl();
+      if (!pin) return;
+      fetch('/api/state?pin=' + encodeURIComponent(pin), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (data) {
+            state = data;
+            if (state.language && ['nl', 'en', 'de'].includes(state.language)) {
+              lang = state.language;
+            }
+            if (state.presentation) stopPresentationPoll();
+            render();
+          }
+        })
+        .catch(function () {});
     }
     
     function send(command, data = {}) {
@@ -1038,12 +1189,15 @@ function getRemoteHTML() {
       const t = translations[lang]; // Haal actuele vertaling op
       
       if (!connected) {
-        app.innerHTML = '<div class="no-presentation"><h2>' + t.disconnected + '</h2><p>' + t.reconnecting + '</p></div>';
+        app.innerHTML = '<div class="no-presentation"><h2>' + t.disconnected + '</h2><p>' + t.reconnecting + '</p>' +
+          '<button type="button" class="refresh-btn" style="margin-top:22px" onclick="location.reload()">↻ ' + t.refreshToConnect + '</button></div>';
         return;
       }
       
       if (!state.presentation) {
-        app.innerHTML = '<div class="no-presentation"><h2>' + t.noPresentation + '</h2><p>' + t.openPresentation + '</p><button class="refresh-btn" onclick="location.reload()">↻ ' + t.refresh + '</button></div>';
+        app.innerHTML = '<div class="no-presentation"><h2>' + t.noPresentation + '</h2><p>' + t.openPresentation + '</p>' +
+          '<p style="font-size:12px;color:#64748b;margin-top:12px">' + t.sync + '</p>' +
+          '<button class="refresh-btn" onclick="location.reload()">↻ ' + t.refresh + '</button></div>';
         return;
       }
       
@@ -1295,8 +1449,47 @@ function getRemoteHTML() {
       });
     }
     
-    // Start
-    connect();
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible') return;
+      var pin = getPinFromUrl();
+      if (!pin) return;
+      // Nooit onderbreken tijdens handshake: iOS vuurt visibility vaak na PIN/toetsenbord
+      if (ws) {
+        if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.CLOSING) {
+          return;
+        }
+        if (ws.readyState === WebSocket.OPEN) {
+          if (!state.presentation) syncStateOnce();
+          return;
+        }
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      resetReconnectBackoff();
+      connect();
+    });
+    
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) {
+        var pin = getPinFromUrl();
+        if (pin) {
+          if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+          }
+          resetReconnectBackoff();
+          connect();
+        }
+      }
+    });
+    
+    var firstBootDelayMs = 280;
+    requestAnimationFrame(function () {
+      setTimeout(connect, firstBootDelayMs);
+      firstBootDelayMs = 0;
+    });
   </script>
 </body>
 </html>`;
