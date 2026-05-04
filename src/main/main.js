@@ -4,12 +4,16 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { getLogger } from './logger.js'
 import { initAutoUpdater, quitAndInstall, retryUpdate } from './updater.js'
+import { startRemoteServer, stopRemoteServer, updateRemoteState, getLocalIPs } from './remoteServer.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Logger instance
 let logger = null
+
+// Remote server info
+let remoteServerInfo = null
 
 // Houd referenties naar windows om garbage collection te voorkomen
 let controllerWindow = null
@@ -259,6 +263,19 @@ ipcMain.handle('get-app-version', async () => {
   return app.getVersion()
 })
 
+// Remote server info
+ipcMain.handle('get-remote-server-info', async () => {
+  return {
+    port: 3001,
+    ips: getLocalIPs()
+  }
+})
+
+// Update remote state (vanuit renderer)
+ipcMain.on('update-remote-state', (event, state) => {
+  updateRemoteState(state)
+})
+
 // App lifecycle
 app.whenReady().then(() => {
   // Initialiseer logger
@@ -309,6 +326,14 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(menu)
   
   createControllerWindow()
+  
+  // Start remote control server
+  try {
+    remoteServerInfo = startRemoteServer(controllerWindow, 3001)
+    logger.info('Remote server started', remoteServerInfo)
+  } catch (err) {
+    logger.error('Failed to start remote server', { error: err.message })
+  }
   
   // Initialiseer auto-updater (alleen in productie)
   if (app.isPackaged) {

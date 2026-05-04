@@ -115,6 +115,16 @@ export const en = {
     checking: 'Checking...',
   },
 
+  // Remote control
+  remote: {
+    title: 'Phone Remote Control',
+    instructions: 'Scan the QR code with your phone or open the URL in your browser.',
+    selectNetwork: 'Select network',
+    orOpenUrl: 'Or open this URL:',
+    sameWifi: 'Make sure your phone is on the same WiFi network.',
+    openRemote: 'Remote Control',
+  },
+
   // Errors
   errors: {
     fileNotFound: 'File not found',

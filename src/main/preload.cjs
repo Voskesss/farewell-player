@@ -62,5 +62,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   retryUpdate: () => ipcRenderer.invoke('retry-update'),
   
   // App versie
-  getAppVersion: () => ipcRenderer.invoke('get-app-version')
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  
+  // Remote control server
+  getRemoteServerInfo: () => ipcRenderer.invoke('get-remote-server-info'),
+  updateRemoteState: (state) => ipcRenderer.send('update-remote-state', state),
+  onRemoteCommand: (callback) => {
+    ipcRenderer.on('remote-command', (event, data) => callback(data))
+  },
+  removeRemoteCommandListener: () => {
+    ipcRenderer.removeAllListeners('remote-command')
+  }
 })

@@ -115,6 +115,16 @@ export const nl = {
     checking: 'Controleren...',
   },
 
+  // Remote control
+  remote: {
+    title: 'Telefoon Afstandsbediening',
+    instructions: 'Scan de QR-code met je telefoon of open de URL in je browser.',
+    selectNetwork: 'Netwerk selecteren',
+    orOpenUrl: 'Of open deze URL:',
+    sameWifi: 'Zorg dat je telefoon op hetzelfde WiFi-netwerk zit.',
+    openRemote: 'Afstandsbediening',
+  },
+
   // Errors
   errors: {
     fileNotFound: 'Bestand niet gevonden',

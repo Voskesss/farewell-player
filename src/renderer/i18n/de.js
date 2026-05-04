@@ -115,6 +115,16 @@ export const de = {
     checking: 'Überprüfen...',
   },
 
+  // Remote control
+  remote: {
+    title: 'Handy-Fernbedienung',
+    instructions: 'Scannen Sie den QR-Code mit Ihrem Handy oder öffnen Sie die URL in Ihrem Browser.',
+    selectNetwork: 'Netzwerk auswählen',
+    orOpenUrl: 'Oder öffnen Sie diese URL:',
+    sameWifi: 'Stellen Sie sicher, dass Ihr Handy im selben WiFi-Netzwerk ist.',
+    openRemote: 'Fernbedienung',
+  },
+
   // Errors
   errors: {
     fileNotFound: 'Datei nicht gefunden',

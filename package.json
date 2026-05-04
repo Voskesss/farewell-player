@@ -20,7 +20,10 @@
   "dependencies": {
     "canvas": "^3.2.1",
     "electron-updater": "^6.1.7",
-    "jszip": "^3.10.1"
+    "express": "^5.2.1",
+    "jszip": "^3.10.1",
+    "qrcode": "^1.5.4",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

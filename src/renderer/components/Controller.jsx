@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import MusicPlayer from './MusicPlayer'
+import RemoteQRCode from './RemoteQRCode'
 import { useTranslation } from '../i18n'
 
 export default function Controller({
@@ -14,6 +15,7 @@ export default function Controller({
   const [displays, setDisplays] = useState([])
   const [selectedDisplay, setSelectedDisplay] = useState(null)
   const [presentationWindowOpen, setPresentationWindowOpen] = useState(false)
+  const [showRemoteQR, setShowRemoteQR] = useState(false)
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
   const [, setPlayingAudioSession] = useState(null)
   const [sessionElapsedTime, setSessionElapsedTime] = useState({}) // Elapsed time per sessie in seconden
@@ -834,6 +836,72 @@ export default function Controller({
     }
   }, [isPlaying, presentationWindowOpen])
 
+  // Sync state naar remote control
+  useEffect(() => {
+    if (window.electronAPI?.updateRemoteState) {
+      window.electronAPI.updateRemoteState({
+        presentation,
+        currentSlideIndex,
+        isPlaying,
+        sessionSlideRanges
+      })
+    }
+  }, [presentation, currentSlideIndex, isPlaying, sessionSlideRanges])
+
+  // Luister naar remote control commando's
+  useEffect(() => {
+    if (!window.electronAPI?.onRemoteCommand) return
+
+    const handleRemoteCommand = (msg) => {
+      console.log('[Controller] Remote command:', msg.command)
+      
+      switch (msg.command) {
+        case 'togglePlay':
+          setIsPlaying(prev => !prev)
+          break
+        case 'nextSlide':
+          if (currentSlideIndex < slides.length - 1) {
+            goToSlide(currentSlideIndex + 1)
+          }
+          break
+        case 'prevSlide':
+          if (currentSlideIndex > 0) {
+            goToSlide(currentSlideIndex - 1)
+          }
+          break
+        case 'nextSession': {
+          const si = getSessionIndexForSlide(currentSlideIndex)
+          if (si < sessionSlideRanges.length - 1) {
+            goToSlide(sessionSlideRanges[si + 1].start)
+          }
+          break
+        }
+        case 'prevSession': {
+          const si = getSessionIndexForSlide(currentSlideIndex)
+          if (si > 0) {
+            goToSlide(sessionSlideRanges[si - 1].start)
+          }
+          break
+        }
+        case 'goToSlide':
+          if (typeof msg.index === 'number') {
+            goToSlide(msg.index)
+          }
+          break
+        case 'goToSession':
+          if (typeof msg.index === 'number' && sessionSlideRanges[msg.index]) {
+            goToSlide(sessionSlideRanges[msg.index].start)
+          }
+          break
+      }
+    }
+
+    window.electronAPI.onRemoteCommand(handleRemoteCommand)
+    return () => {
+      window.electronAPI?.removeRemoteCommandListener()
+    }
+  }, [currentSlideIndex, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide])
+
   // Bediening fullscreen zodra de controller zichtbaar is.
   // Geen cleanup naar windowed hier: React 18 Strict Mode zou dan in dev kort false→true flikkeren.
   // Uitzetten gebeurt alleen bij sluiten (knop X) via handleExitController.
@@ -906,6 +974,17 @@ export default function Controller({
           <h1 className="text-base font-semibold text-white truncate">{name}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowRemoteQR(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white transition"
+            title={t('remote.openRemote')}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <span className="hidden sm:inline">{t('remote.openRemote')}</span>
+          </button>
           <select
             value={selectedDisplay || ''}
             onChange={(e) => setSelectedDisplay(Number(e.target.value))}
@@ -1338,6 +1417,11 @@ export default function Controller({
           </div>
         </div>
       </div>
+
+      {/* Remote QR Code Modal */}
+      {showRemoteQR && (
+        <RemoteQRCode onClose={() => setShowRemoteQR(false)} />
+      )}
     </div>
   )
 
