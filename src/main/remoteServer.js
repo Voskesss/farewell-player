@@ -123,7 +123,11 @@ function getRemoteHTML() {
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f172a">
   <title>Farewell Remote</title>
   <style>
     * {
@@ -131,15 +135,33 @@ function getRemoteHTML() {
       margin: 0;
       padding: 0;
       -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    
+    html {
+      touch-action: manipulation;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      height: 100%;
     }
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
       color: white;
-      min-height: 100vh;
+      height: 100%;
       padding: 12px;
-      padding-bottom: env(safe-area-inset-bottom, 12px);
+      padding-top: max(12px, env(safe-area-inset-top));
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: none;
     }
     
     .header {
@@ -432,6 +454,77 @@ function getRemoteHTML() {
   </div>
   
   <script>
+    // Taal detectie
+    const browserLang = (navigator.language || navigator.userLanguage || 'nl').split('-')[0];
+    const lang = ['nl', 'en', 'de'].includes(browserLang) ? browserLang : 'nl';
+    
+    const translations = {
+      nl: {
+        title: 'Farewell Remote',
+        connecting: 'Verbinden...',
+        waitingPresentation: 'Wachten op presentatie',
+        disconnected: 'Verbinding verbroken',
+        reconnecting: 'Opnieuw verbinden...',
+        noPresentation: 'Geen presentatie',
+        openPresentation: 'Open een presentatie in Farewell Player',
+        slide: 'Slide',
+        of: 'van',
+        playing: 'Speelt',
+        paused: 'Gepauzeerd',
+        slides: 'slides',
+        loop: 'Loop',
+        speaker: 'Spreker',
+        prev: 'Vorige',
+        next: 'Volgende',
+        connected: 'Verbonden',
+        notConnected: 'Niet verbonden',
+        session: 'Sessie'
+      },
+      en: {
+        title: 'Farewell Remote',
+        connecting: 'Connecting...',
+        waitingPresentation: 'Waiting for presentation',
+        disconnected: 'Connection lost',
+        reconnecting: 'Reconnecting...',
+        noPresentation: 'No presentation',
+        openPresentation: 'Open a presentation in Farewell Player',
+        slide: 'Slide',
+        of: 'of',
+        playing: 'Playing',
+        paused: 'Paused',
+        slides: 'slides',
+        loop: 'Loop',
+        speaker: 'Speaker',
+        prev: 'Previous',
+        next: 'Next',
+        connected: 'Connected',
+        notConnected: 'Not connected',
+        session: 'Session'
+      },
+      de: {
+        title: 'Farewell Remote',
+        connecting: 'Verbinden...',
+        waitingPresentation: 'Warten auf Präsentation',
+        disconnected: 'Verbindung getrennt',
+        reconnecting: 'Erneut verbinden...',
+        noPresentation: 'Keine Präsentation',
+        openPresentation: 'Öffnen Sie eine Präsentation in Farewell Player',
+        slide: 'Folie',
+        of: 'von',
+        playing: 'Läuft',
+        paused: 'Pausiert',
+        slides: 'Folien',
+        loop: 'Schleife',
+        speaker: 'Sprecher',
+        prev: 'Zurück',
+        next: 'Weiter',
+        connected: 'Verbunden',
+        notConnected: 'Nicht verbunden',
+        session: 'Sitzung'
+      }
+    };
+    const t = translations[lang];
+    
     let state = {
       presentation: null,
       currentSlideIndex: 0,
@@ -440,6 +533,8 @@ function getRemoteHTML() {
     };
     let ws = null;
     let connected = false;
+    let lastCommandTime = 0;
+    const DEBOUNCE_MS = 300;
     
     function connect() {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -473,6 +568,14 @@ function getRemoteHTML() {
     }
     
     function send(command, data = {}) {
+      // Debounce - voorkom snelle dubbele commands
+      const now = Date.now();
+      if (now - lastCommandTime < DEBOUNCE_MS) {
+        console.log('Command debounced:', command);
+        return;
+      }
+      lastCommandTime = now;
+      
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ command, ...data }));
       }
@@ -492,16 +595,22 @@ function getRemoteHTML() {
       return 'normal';
     }
     
+    // Voorkom zoom bij dubbeltik
+    document.addEventListener('dblclick', (e) => e.preventDefault());
+    
+    // Voorkom context menu
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    
     function render() {
       const app = document.getElementById('app');
       
       if (!connected) {
-        app.innerHTML = '<div class="no-presentation"><h2>Verbinding verbroken</h2><p>Opnieuw verbinden...</p></div>';
+        app.innerHTML = '<div class="no-presentation"><h2>' + t.disconnected + '</h2><p>' + t.reconnecting + '</p></div>';
         return;
       }
       
       if (!state.presentation) {
-        app.innerHTML = '<div class="no-presentation"><h2>Geen presentatie</h2><p>Open een presentatie in Farewell Player</p></div>';
+        app.innerHTML = '<div class="no-presentation"><h2>' + t.noPresentation + '</h2><p>' + t.openPresentation + '</p></div>';
         return;
       }
       
@@ -512,14 +621,14 @@ function getRemoteHTML() {
       state.sessionSlideRanges.forEach((range, idx) => {
         const isActive = idx === currentSessionIdx;
         const session = range.session || {};
-        const name = session.name || 'Sessie ' + (idx + 1);
+        const name = session.name || t.session + ' ' + (idx + 1);
         const slideCount = range.end - range.start + 1;
         const sessionType = getSessionType(session);
         const colorClass = 'color-' + (idx % 9);
         
         let badge = '';
-        if (sessionType === 'loop') badge = '<span class="session-badge">🔄 Loop</span>';
-        else if (sessionType === 'speaker') badge = '<span class="session-badge">🎤 Spreker</span>';
+        if (sessionType === 'loop') badge = '<span class="session-badge">🔄 ' + t.loop + '</span>';
+        else if (sessionType === 'speaker') badge = '<span class="session-badge">🎤 ' + t.speaker + '</span>';
         
         let slidesHTML = '';
         for (let i = range.start; i <= range.end; i++) {
@@ -528,19 +637,19 @@ function getRemoteHTML() {
           const isVideo = slide?.isVideo ? 'video' : '';
           const thumbUrl = slide?.url || '';
           
-          slidesHTML += '<div class="slide ' + (isSlideActive ? 'active' : '') + ' ' + isVideo + '" onclick="event.stopPropagation(); send(\\'goToSlide\\', {index: ' + i + '})">';
+          slidesHTML += '<div class="slide ' + (isSlideActive ? 'active' : '') + ' ' + isVideo + '" data-index="' + i + '">';
           if (thumbUrl && !slide?.isVideo) {
-            slidesHTML += '<img src="' + thumbUrl + '" alt="" loading="lazy" />';
+            slidesHTML += '<img src="' + thumbUrl + '" alt="" loading="lazy" draggable="false" />';
           }
           slidesHTML += '<span class="number">' + (i + 1) + '</span>';
           slidesHTML += '</div>';
         }
         
         const typeClass = sessionType !== 'normal' ? sessionType : '';
-        sessionsHTML += '<div class="session ' + colorClass + ' ' + typeClass + ' ' + (isActive ? 'active' : '') + '" onclick="send(\\'goToSession\\', {index: ' + idx + '})">' +
+        sessionsHTML += '<div class="session ' + colorClass + ' ' + typeClass + ' ' + (isActive ? 'active' : '') + '" data-session="' + idx + '">' +
           '<div class="session-header">' +
             '<span class="session-name">' + name + badge + '</span>' +
-            '<span class="session-info">' + slideCount + ' slide' + (slideCount > 1 ? 's' : '') + '</span>' +
+            '<span class="session-info">' + slideCount + ' ' + t.slides + '</span>' +
           '</div>' +
           '<div class="slides">' + slidesHTML + '</div>' +
         '</div>';
@@ -554,38 +663,81 @@ function getRemoteHTML() {
       
       app.innerHTML = 
         '<div class="header">' +
-          '<h1>Farewell Remote</h1>' +
+          '<h1>' + t.title + '</h1>' +
           '<div class="title">' + (state.presentation.name || 'Presentatie') + '</div>' +
         '</div>' +
         
         '<div class="status">' +
-          '<span>Slide ' + (state.currentSlideIndex + 1) + ' / ' + slides.length + '</span>' +
+          '<span>' + t.slide + ' ' + (state.currentSlideIndex + 1) + ' ' + t.of + ' ' + slides.length + '</span>' +
           '<span class="' + (state.isPlaying ? 'playing' : 'paused') + '">' + 
-            (state.isPlaying ? '● Speelt' : '● Gepauzeerd') + 
+            (state.isPlaying ? '● ' + t.playing : '● ' + t.paused) + 
           '</span>' +
         '</div>' +
         
         '<div class="sessions">' + sessionsHTML + '</div>' +
         
         '<div class="main-controls">' +
-          '<button class="btn btn-nav" onclick="send(\\'prevSlide\\')">' + prevIcon + '</button>' +
-          '<button class="btn btn-large btn-play ' + (state.isPlaying ? 'playing' : '') + '" onclick="send(\\'togglePlay\\')">' +
+          '<button class="btn btn-nav" data-action="prevSlide">' + prevIcon + '</button>' +
+          '<button class="btn btn-large btn-play ' + (state.isPlaying ? 'playing' : '') + '" data-action="togglePlay">' +
             (state.isPlaying ? pauseIcon : playIcon) +
           '</button>' +
-          '<button class="btn btn-nav" onclick="send(\\'nextSlide\\')">' + nextIcon + '</button>' +
+          '<button class="btn btn-nav" data-action="nextSlide">' + nextIcon + '</button>' +
         '</div>' +
         
         '<div class="nav-row">' +
-          '<button class="btn btn-session" onclick="send(\\'prevSession\\')">◀◀ Vorige</button>' +
-          '<button class="btn btn-session" onclick="send(\\'nextSession\\')">Volgende ▶▶</button>' +
+          '<button class="btn btn-session" data-action="prevSession">◀◀ ' + t.prev + '</button>' +
+          '<button class="btn btn-session" data-action="nextSession">' + t.next + ' ▶▶</button>' +
         '</div>' +
         
         '<div class="footer">' +
           '<div class="connection">' +
             '<span class="connection-dot ' + (connected ? '' : 'disconnected') + '"></span>' +
-            '<span>' + (connected ? 'Verbonden' : 'Niet verbonden') + '</span>' +
+            '<span>' + (connected ? t.connected : t.notConnected) + '</span>' +
           '</div>' +
         '</div>';
+      
+      // Event delegation voor robuustere klik-handling
+      attachEventListeners();
+    }
+    
+    function attachEventListeners() {
+      const app = document.getElementById('app');
+      
+      // Gebruik touchend voor snellere respons op mobiel, met fallback naar click
+      const eventType = 'ontouchend' in window ? 'touchend' : 'click';
+      
+      app.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener(eventType, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const action = btn.dataset.action;
+          send(action);
+        }, { passive: false });
+      });
+      
+      app.querySelectorAll('.slide[data-index]').forEach(slide => {
+        slide.addEventListener(eventType, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const index = parseInt(slide.dataset.index, 10);
+          if (!isNaN(index)) {
+            send('goToSlide', { index });
+          }
+        }, { passive: false });
+      });
+      
+      app.querySelectorAll('.session[data-session]').forEach(session => {
+        session.addEventListener(eventType, (e) => {
+          // Alleen als niet op een slide geklikt
+          if (e.target.closest('.slide')) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const index = parseInt(session.dataset.session, 10);
+          if (!isNaN(index)) {
+            send('goToSession', { index });
+          }
+        }, { passive: false });
+      });
     }
     
     // Start
