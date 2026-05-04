@@ -84,7 +84,11 @@
       "target": [
         "nsis"
       ],
-      "publisherName": "The Last Farewell"
+      "publisherName": [
+        "The Last Farewell (J.K. Klijnhout Holding B.V.)",
+        "J.K. Klijnhout Holding B.V.",
+        "The Last Farewell"
+      ]
     },
     "linux": {
       "target": [

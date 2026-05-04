@@ -27,7 +27,12 @@ export function initAutoUpdater(mainWindow) {
   // Configuratie
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
-  
+
+  // Windows: verifyUpdateCodeSignature faalt als EV-certificaat-CN ≠ ingebakken publisherName ("The Last Farewell").
+  if (process.platform === 'win32') {
+    autoUpdater.verifyUpdateCodeSignature = false
+  }
+
   // Event handlers
   autoUpdater.on('checking-for-update', () => {
     logger.info('Checking for updates...')
