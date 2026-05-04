@@ -4,7 +4,7 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { getLogger } from './logger.js'
 import { initAutoUpdater, quitAndInstall, retryUpdate } from './updater.js'
-import { startRemoteServer, stopRemoteServer, updateRemoteState, getLocalIPs } from './remoteServer.js'
+import { startRemoteServer, stopRemoteServer, updateRemoteState, getLocalIPs, getAccessPin } from './remoteServer.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -267,7 +267,8 @@ ipcMain.handle('get-app-version', async () => {
 ipcMain.handle('get-remote-server-info', async () => {
   return {
     port: 3001,
-    ips: getLocalIPs()
+    ips: getLocalIPs(),
+    pin: getAccessPin()
   }
 })
 

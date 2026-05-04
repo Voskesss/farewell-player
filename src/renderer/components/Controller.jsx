@@ -836,17 +836,125 @@ export default function Controller({
     }
   }, [isPlaying, presentationWindowOpen])
 
+  // Genereer slide thumbnails als base64 voor remote control
+  const [slideThumbnails, setSlideThumbnails] = useState([])
+  
+  useEffect(() => {
+    if (!slides || slides.length === 0) {
+      setSlideThumbnails([])
+      return
+    }
+    
+    const generateThumbnails = async () => {
+      const thumbs = []
+      const THUMB_WIDTH = 80
+      const THUMB_HEIGHT = 60
+      
+      for (let i = 0; i < slides.length; i++) {
+        const slide = slides[i]
+        
+        if (slide.isVideo) {
+          // Video's krijgen geen thumbnail, alleen een marker
+          thumbs.push({ index: i, isVideo: true, base64: null })
+          continue
+        }
+        
+        try {
+          // Laad image en resize naar thumbnail
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve
+            img.onerror = reject
+            img.src = slide.url
+          })
+          
+          // Canvas voor resizing
+          const canvas = document.createElement('canvas')
+          canvas.width = THUMB_WIDTH
+          canvas.height = THUMB_HEIGHT
+          const ctx = canvas.getContext('2d')
+          
+          // Cover fit (crop to fill)
+          const scale = Math.max(THUMB_WIDTH / img.width, THUMB_HEIGHT / img.height)
+          const scaledW = img.width * scale
+          const scaledH = img.height * scale
+          const offsetX = (THUMB_WIDTH - scaledW) / 2
+          const offsetY = (THUMB_HEIGHT - scaledH) / 2
+          
+          ctx.drawImage(img, offsetX, offsetY, scaledW, scaledH)
+          
+          const base64 = canvas.toDataURL('image/jpeg', 0.6)
+          thumbs.push({ index: i, isVideo: false, base64 })
+        } catch (err) {
+          console.warn('[Controller] Failed to generate thumbnail for slide', i, err)
+          thumbs.push({ index: i, isVideo: false, base64: null })
+        }
+      }
+      
+      setSlideThumbnails(thumbs)
+    }
+    
+    generateThumbnails()
+  }, [slides])
+  
+  // Haal muziek info op voor huidige sessie
+  const getCurrentMusicInfo = useCallback(() => {
+    const sessionIdx = getSessionIndexForSlide(currentSlideIndex)
+    const range = sessionSlideRanges[sessionIdx]
+    const session = range?.session
+    
+    if (!session) return null
+    
+    // Check voor audio tracks
+    const hasAudio = session.audio?.url || session.audioTracks?.length > 0
+    if (!hasAudio) return null
+    
+    // Haal track naam op
+    let trackName = null
+    if (session.audioTracks?.length > 0) {
+      trackName = session.audioTracks[0].name || session.audioTracks[0].file?.split('/').pop()
+    } else if (session.audio?.file) {
+      trackName = session.audio.file.split('/').pop()?.replace(/\.(mp3|wav|m4a|ogg)$/i, '')
+    }
+    
+    // Check of audio speelt
+    const audioElement = audioRefs.current[sessionIdx]
+    const isMusicPlaying = audioElement && !audioElement.paused && !audioElement.ended
+    
+    return {
+      trackName: trackName || 'Muziek',
+      isPlaying: isMusicPlaying,
+      sessionIndex: sessionIdx
+    }
+  }, [currentSlideIndex, sessionSlideRanges, getSessionIndexForSlide])
+  
   // Sync state naar remote control
   useEffect(() => {
     if (window.electronAPI?.updateRemoteState) {
+      // Maak een versimpelde presentatie met thumbnails ipv blob urls
+      const remotePresentation = presentation ? {
+        name: presentation.name,
+        slides: slides.map((slide, idx) => ({
+          isVideo: slide.isVideo,
+          pauseHere: slide.pauseHere,
+          thumbnail: slideThumbnails[idx]?.base64 || null
+        })),
+        sessions: presentation.sessions
+      } : null
+      
+      const musicInfo = getCurrentMusicInfo()
+      
       window.electronAPI.updateRemoteState({
-        presentation,
+        presentation: remotePresentation,
         currentSlideIndex,
         isPlaying,
-        sessionSlideRanges
+        sessionSlideRanges,
+        musicInfo
       })
     }
-  }, [presentation, currentSlideIndex, isPlaying, sessionSlideRanges])
+  }, [presentation, slides, slideThumbnails, currentSlideIndex, isPlaying, sessionSlideRanges, getCurrentMusicInfo])
 
   // Luister naar remote control commando's
   useEffect(() => {
@@ -893,6 +1001,19 @@ export default function Controller({
             goToSlide(sessionSlideRanges[msg.index].start)
           }
           break
+        case 'toggleMusic': {
+          // Toggle muziek voor huidige sessie
+          const sessionIdx = getSessionIndexForSlide(currentSlideIndex)
+          const audioElement = audioRefs.current[sessionIdx]
+          if (audioElement) {
+            if (audioElement.paused) {
+              audioElement.play().catch(() => {})
+            } else {
+              audioElement.pause()
+            }
+          }
+          break
+        }
       }
     }
 

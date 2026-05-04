@@ -2,9 +2,8 @@ import express from 'express'
 import { WebSocketServer } from 'ws'
 import { createServer } from 'http'
 import { networkInterfaces } from 'os'
-import path from 'path'
-import fs from 'fs'
 import { fileURLToPath } from 'url'
+import path from 'path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -17,6 +16,18 @@ let currentState = {
   currentSlideIndex: 0,
   isPlaying: false,
   sessionSlideRanges: []
+}
+
+// Genereer een willekeurige 4-cijferige PIN
+let accessPin = null
+
+function generatePin() {
+  accessPin = String(Math.floor(1000 + Math.random() * 9000))
+  return accessPin
+}
+
+export function getAccessPin() {
+  return accessPin
 }
 
 // Krijg lokale IP-adressen
@@ -39,10 +50,23 @@ export function getLocalIPs() {
 export function startRemoteServer(mainWindow, port = 3001) {
   controllerWindow = mainWindow
   
+  // Genereer nieuwe PIN bij opstarten
+  generatePin()
+  console.log('[RemoteServer] Access PIN:', accessPin)
+  
   const app = express()
   
-  // Serve static remote control page
+  // Serve PIN invoer pagina
   app.get('/', (req, res) => {
+    res.send(getPinPageHTML())
+  })
+  
+  // Valideer PIN en geef remote control pagina
+  app.get('/remote', (req, res) => {
+    const pin = req.query.pin
+    if (pin !== accessPin) {
+      return res.redirect('/?error=invalid')
+    }
     res.send(getRemoteHTML())
   })
   
@@ -51,52 +75,23 @@ export function startRemoteServer(mainWindow, port = 3001) {
     res.json(currentState)
   })
   
-  // Serve lokale slide afbeeldingen
-  app.get('/slide/:index', (req, res) => {
-    const index = parseInt(req.params.index, 10)
-    const slides = currentState.presentation?.slides || []
-    const slide = slides[index]
-    
-    if (!slide || !slide.url) {
-      return res.status(404).send('Slide not found')
-    }
-    
-    // Converteer file:// URL naar lokaal pad
-    let filePath = slide.url
-    if (filePath.startsWith('file://')) {
-      filePath = decodeURIComponent(filePath.replace('file://', ''))
-    }
-    
-    // Check of bestand bestaat
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send('File not found')
-    }
-    
-    // Bepaal content type
-    const ext = path.extname(filePath).toLowerCase()
-    const mimeTypes = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp',
-      '.mp4': 'video/mp4',
-      '.webm': 'video/webm'
-    }
-    const contentType = mimeTypes[ext] || 'application/octet-stream'
-    
-    res.setHeader('Content-Type', contentType)
-    res.setHeader('Cache-Control', 'public, max-age=3600')
-    fs.createReadStream(filePath).pipe(res)
-  })
-  
   server = createServer(app)
   
   // WebSocket server voor realtime updates
   wss = new WebSocketServer({ server })
   
-  wss.on('connection', (ws) => {
-    console.log('[RemoteServer] Client connected')
+  wss.on('connection', (ws, req) => {
+    // Check PIN in query string
+    const url = new URL(req.url, `http://${req.headers.host}`)
+    const pin = url.searchParams.get('pin')
+    
+    if (pin !== accessPin) {
+      console.log('[RemoteServer] Client rejected - invalid PIN')
+      ws.close(4001, 'Invalid PIN')
+      return
+    }
+    
+    console.log('[RemoteServer] Client connected (authenticated)')
     
     // Stuur huidige state naar nieuwe client
     ws.send(JSON.stringify({ type: 'state', data: currentState }))
@@ -155,6 +150,116 @@ export function updateRemoteState(newState) {
       }
     })
   }
+}
+
+// Genereer PIN invoer pagina
+function getPinPageHTML() {
+  return `<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f172a">
+  <title>Farewell Remote</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .logo { font-size: 48px; margin-bottom: 20px; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    p { color: #94a3b8; margin-bottom: 24px; font-size: 14px; }
+    .pin-form { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .pin-inputs { display: flex; gap: 10px; }
+    .pin-input {
+      width: 50px;
+      height: 60px;
+      font-size: 24px;
+      text-align: center;
+      border: 2px solid #334155;
+      border-radius: 10px;
+      background: #1e293b;
+      color: white;
+      outline: none;
+    }
+    .pin-input:focus { border-color: #3b82f6; }
+    .error { color: #ef4444; font-size: 13px; margin-top: -8px; }
+    .btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      max-width: 230px;
+    }
+    .btn:active { background: #2563eb; }
+    .hint { color: #64748b; font-size: 12px; margin-top: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="logo">🔒</div>
+  <h1>Farewell Remote</h1>
+  <p>Voer de PIN in die wordt getoond in de app</p>
+  
+  <form class="pin-form" onsubmit="submitPin(event)">
+    <div class="pin-inputs">
+      <input type="tel" class="pin-input" maxlength="1" pattern="[0-9]" inputmode="numeric" autofocus>
+      <input type="tel" class="pin-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+      <input type="tel" class="pin-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+      <input type="tel" class="pin-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+    </div>
+    <div class="error" id="error" style="display:none;">Onjuiste PIN, probeer opnieuw</div>
+    <button type="submit" class="btn">Verbinden</button>
+  </form>
+  
+  <p class="hint">De PIN wordt getoond in Farewell Player<br>bij de Remote Control knop</p>
+  
+  <script>
+    const inputs = document.querySelectorAll('.pin-input');
+    const error = document.getElementById('error');
+    
+    // Check for error in URL
+    if (location.search.includes('error=invalid')) {
+      error.style.display = 'block';
+    }
+    
+    // Auto-focus volgende input
+    inputs.forEach((input, idx) => {
+      input.addEventListener('input', (e) => {
+        if (e.target.value && idx < inputs.length - 1) {
+          inputs[idx + 1].focus();
+        }
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+          inputs[idx - 1].focus();
+        }
+      });
+    });
+    
+    function submitPin(e) {
+      e.preventDefault();
+      const pin = Array.from(inputs).map(i => i.value).join('');
+      if (pin.length === 4) {
+        window.location.href = '/remote?pin=' + pin;
+      }
+    }
+  </script>
+</body>
+</html>`;
 }
 
 // Genereer de remote control HTML pagina
@@ -242,13 +347,9 @@ function getRemoteHTML() {
     }
     
     /* Sessies */
-    .sessions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 20px;
-      max-height: 45vh;
-      overflow-y: auto;
+    /* Actief tijdblok sectie */
+    .active-session {
+      margin-bottom: 12px;
     }
     
     .session {
@@ -257,26 +358,26 @@ function getRemoteHTML() {
       border-left: 4px solid;
     }
     
-    /* Sessie kleuren - matchen met Controller */
-    .session.color-0 { background: rgba(59,130,246,0.15); border-color: #3b82f6; }
-    .session.color-1 { background: rgba(16,185,129,0.15); border-color: #10b981; }
-    .session.color-2 { background: rgba(245,158,11,0.15); border-color: #f59e0b; }
-    .session.color-3 { background: rgba(239,68,68,0.15); border-color: #ef4444; }
-    .session.color-4 { background: rgba(168,85,247,0.15); border-color: #a855f7; }
-    .session.color-5 { background: rgba(236,72,153,0.15); border-color: #ec4899; }
-    .session.color-6 { background: rgba(6,182,212,0.15); border-color: #06b6d4; }
-    .session.color-7 { background: rgba(217,70,239,0.15); border-color: #d946ef; }
-    .session.color-8 { background: rgba(132,204,22,0.15); border-color: #84cc16; }
-    
-    .session.active {
-      box-shadow: 0 0 0 2px white;
+    .session.active-main {
+      background: rgba(255,255,255,0.08);
     }
     
+    /* Sessie kleuren - matchen met Controller */
+    .session.color-0, .session-compact.color-0 { background: rgba(59,130,246,0.15); border-color: #3b82f6; }
+    .session.color-1, .session-compact.color-1 { background: rgba(16,185,129,0.15); border-color: #10b981; }
+    .session.color-2, .session-compact.color-2 { background: rgba(245,158,11,0.15); border-color: #f59e0b; }
+    .session.color-3, .session-compact.color-3 { background: rgba(239,68,68,0.15); border-color: #ef4444; }
+    .session.color-4, .session-compact.color-4 { background: rgba(168,85,247,0.15); border-color: #a855f7; }
+    .session.color-5, .session-compact.color-5 { background: rgba(236,72,153,0.15); border-color: #ec4899; }
+    .session.color-6, .session-compact.color-6 { background: rgba(6,182,212,0.15); border-color: #06b6d4; }
+    .session.color-7, .session-compact.color-7 { background: rgba(217,70,239,0.15); border-color: #d946ef; }
+    .session.color-8, .session-compact.color-8 { background: rgba(132,204,22,0.15); border-color: #84cc16; }
+    
     /* Loop sessie */
-    .session.loop { border-style: dashed; }
+    .session.loop, .session-compact.loop { border-style: dashed; }
     
     /* Speaker sessie */
-    .session.speaker { background: rgba(139,92,246,0.2); border-color: #8b5cf6; }
+    .session.speaker, .session-compact.speaker { background: rgba(139,92,246,0.2); border-color: #8b5cf6; }
     
     .session-header {
       display: flex;
@@ -300,7 +401,40 @@ function getRemoteHTML() {
       background: rgba(255,255,255,0.15);
     }
     
+    .session-badge-small {
+      font-size: 10px;
+    }
+    
     .session-info {
+      font-size: 11px;
+    }
+    
+    /* Andere tijdblokken - compact */
+    .other-sessions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+      max-height: 25vh;
+      overflow-y: auto;
+    }
+    
+    .session-compact {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border-left: 4px solid;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    
+    .session-compact:active {
+      opacity: 0.7;
+    }
+    
+    .session-compact .session-info {
       font-size: 11px;
       color: #94a3b8;
     }
@@ -483,6 +617,82 @@ function getRemoteHTML() {
       margin-bottom: 8px;
       color: #94a3b8;
     }
+    
+    /* Muziek panel */
+    .music-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #1e293b;
+      border-top: 1px solid #334155;
+      padding: 8px 12px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 100;
+      transition: transform 0.3s ease;
+    }
+    
+    .music-bar.no-music {
+      background: #0f172a;
+      padding: 6px 12px;
+      padding-bottom: max(6px, env(safe-area-inset-bottom));
+    }
+    
+    .music-icon {
+      font-size: 18px;
+    }
+    
+    .music-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .music-track {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .music-status {
+      font-size: 11px;
+      color: #64748b;
+    }
+    
+    .music-status.playing {
+      color: #22c55e;
+    }
+    
+    .music-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #334155;
+      border: none;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    
+    .music-btn:active {
+      background: #475569;
+    }
+    
+    .music-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+    
+    /* Ruimte voor muziek bar */
+    .footer {
+      margin-bottom: 60px;
+    }
   </style>
 </head>
 <body>
@@ -514,11 +724,15 @@ function getRemoteHTML() {
         slides: 'slides',
         loop: 'Loop',
         speaker: 'Spreker',
-        prev: 'Vorige',
-        next: 'Volgende',
+        prevSession: 'Vorig tijdblok',
+        nextSession: 'Volgend tijdblok',
         connected: 'Verbonden',
         notConnected: 'Niet verbonden',
-        session: 'Sessie'
+        session: 'Sessie',
+        music: 'Muziek',
+        noMusic: 'Geen muziek',
+        musicPlaying: 'Speelt',
+        musicPaused: 'Gestopt'
       },
       en: {
         title: 'Farewell Remote',
@@ -535,11 +749,15 @@ function getRemoteHTML() {
         slides: 'slides',
         loop: 'Loop',
         speaker: 'Speaker',
-        prev: 'Previous',
-        next: 'Next',
+        prevSession: 'Previous session',
+        nextSession: 'Next session',
         connected: 'Connected',
         notConnected: 'Not connected',
-        session: 'Session'
+        session: 'Session',
+        music: 'Music',
+        noMusic: 'No music',
+        musicPlaying: 'Playing',
+        musicPaused: 'Paused'
       },
       de: {
         title: 'Farewell Remote',
@@ -556,11 +774,15 @@ function getRemoteHTML() {
         slides: 'Folien',
         loop: 'Schleife',
         speaker: 'Sprecher',
-        prev: 'Zurück',
-        next: 'Weiter',
+        prevSession: 'Vorheriger Block',
+        nextSession: 'Nächster Block',
         connected: 'Verbunden',
         notConnected: 'Nicht verbunden',
-        session: 'Sitzung'
+        session: 'Sitzung',
+        music: 'Musik',
+        noMusic: 'Keine Musik',
+        musicPlaying: 'Spielt',
+        musicPaused: 'Angehalten'
       }
     };
     const t = translations[lang];
@@ -574,11 +796,15 @@ function getRemoteHTML() {
     let ws = null;
     let connected = false;
     let lastCommandTime = 0;
+    let lastActiveSessionIdx = -1;
     const DEBOUNCE_MS = 300;
     
     function connect() {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(protocol + '//' + location.host);
+      // Haal PIN uit URL query string
+      const urlParams = new URLSearchParams(window.location.search);
+      const pin = urlParams.get('pin') || '';
+      ws = new WebSocket(protocol + '//' + location.host + '?pin=' + pin);
       
       ws.onopen = () => {
         connected = true;
@@ -635,6 +861,34 @@ function getRemoteHTML() {
       return 'normal';
     }
     
+    function getMusicBarHTML() {
+      const musicInfo = state.musicInfo;
+      const playIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+      const pauseIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      
+      if (!musicInfo || !musicInfo.trackName) {
+        return '<div class="music-bar no-music">' +
+          '<span class="music-icon">🔇</span>' +
+          '<div class="music-info">' +
+            '<div class="music-track" style="color: #64748b;">' + t.noMusic + '</div>' +
+          '</div>' +
+        '</div>';
+      }
+      
+      return '<div class="music-bar">' +
+        '<span class="music-icon">🎵</span>' +
+        '<div class="music-info">' +
+          '<div class="music-track">' + musicInfo.trackName + '</div>' +
+          '<div class="music-status ' + (musicInfo.isPlaying ? 'playing' : '') + '">' +
+            (musicInfo.isPlaying ? '● ' + t.musicPlaying : '○ ' + t.musicPaused) +
+          '</div>' +
+        '</div>' +
+        '<button class="music-btn" data-action="toggleMusic">' +
+          (musicInfo.isPlaying ? pauseIcon : playIcon) +
+        '</button>' +
+      '</div>';
+    }
+    
     // Voorkom zoom bij dubbeltik
     document.addEventListener('dblclick', (e) => e.preventDefault());
     
@@ -657,9 +911,50 @@ function getRemoteHTML() {
       const currentSessionIdx = getSessionForSlide(state.currentSlideIndex);
       const slides = state.presentation.slides || [];
       
-      let sessionsHTML = '';
+      // Bouw actief tijdblok HTML (bovenaan, met slides)
+      let activeSessionHTML = '';
+      const activeRange = state.sessionSlideRanges[currentSessionIdx];
+      if (activeRange) {
+        const session = activeRange.session || {};
+        const name = session.name || t.session + ' ' + (currentSessionIdx + 1);
+        const slideCount = activeRange.end - activeRange.start + 1;
+        const sessionType = getSessionType(session);
+        const colorClass = 'color-' + (currentSessionIdx % 9);
+        
+        let badge = '';
+        if (sessionType === 'loop') badge = '<span class="session-badge">🔄 ' + t.loop + '</span>';
+        else if (sessionType === 'speaker') badge = '<span class="session-badge">🎤 ' + t.speaker + '</span>';
+        
+        let slidesHTML = '';
+        for (let i = activeRange.start; i <= activeRange.end; i++) {
+          const slide = slides[i];
+          const isSlideActive = i === state.currentSlideIndex;
+          const isVideo = slide?.isVideo ? 'video' : '';
+          const thumbnail = slide?.thumbnail;
+          
+          slidesHTML += '<div class="slide ' + (isSlideActive ? 'active' : '') + ' ' + isVideo + '" data-index="' + i + '">';
+          if (thumbnail) {
+            slidesHTML += '<img src="' + thumbnail + '" alt="" draggable="false" />';
+          }
+          slidesHTML += '<span class="number">' + (i + 1) + '</span>';
+          slidesHTML += '</div>';
+        }
+        
+        const typeClass = sessionType !== 'normal' ? sessionType : '';
+        activeSessionHTML = '<div class="session active-main ' + colorClass + ' ' + typeClass + '">' +
+          '<div class="session-header">' +
+            '<span class="session-name">' + name + badge + '</span>' +
+            '<span class="session-info">' + slideCount + ' ' + t.slides + '</span>' +
+          '</div>' +
+          '<div class="slides">' + slidesHTML + '</div>' +
+        '</div>';
+      }
+      
+      // Bouw andere tijdblokken HTML (compact, zonder slides)
+      let otherSessionsHTML = '';
       state.sessionSlideRanges.forEach((range, idx) => {
-        const isActive = idx === currentSessionIdx;
+        if (idx === currentSessionIdx) return; // Skip actief tijdblok
+        
         const session = range.session || {};
         const name = session.name || t.session + ' ' + (idx + 1);
         const slideCount = range.end - range.start + 1;
@@ -667,31 +962,13 @@ function getRemoteHTML() {
         const colorClass = 'color-' + (idx % 9);
         
         let badge = '';
-        if (sessionType === 'loop') badge = '<span class="session-badge">🔄 ' + t.loop + '</span>';
-        else if (sessionType === 'speaker') badge = '<span class="session-badge">🎤 ' + t.speaker + '</span>';
-        
-        let slidesHTML = '';
-        for (let i = range.start; i <= range.end; i++) {
-          const slide = slides[i];
-          const isSlideActive = i === state.currentSlideIndex;
-          const isVideo = slide?.isVideo ? 'video' : '';
-          
-          slidesHTML += '<div class="slide ' + (isSlideActive ? 'active' : '') + ' ' + isVideo + '" data-index="' + i + '">';
-          if (!slide?.isVideo) {
-            // Gebruik server endpoint voor afbeeldingen
-            slidesHTML += '<img src="/slide/' + i + '" alt="" loading="lazy" draggable="false" />';
-          }
-          slidesHTML += '<span class="number">' + (i + 1) + '</span>';
-          slidesHTML += '</div>';
-        }
+        if (sessionType === 'loop') badge = '<span class="session-badge-small">🔄</span>';
+        else if (sessionType === 'speaker') badge = '<span class="session-badge-small">🎤</span>';
         
         const typeClass = sessionType !== 'normal' ? sessionType : '';
-        sessionsHTML += '<div class="session ' + colorClass + ' ' + typeClass + ' ' + (isActive ? 'active' : '') + '" data-session="' + idx + '">' +
-          '<div class="session-header">' +
-            '<span class="session-name">' + name + badge + '</span>' +
-            '<span class="session-info">' + slideCount + ' ' + t.slides + '</span>' +
-          '</div>' +
-          '<div class="slides">' + slidesHTML + '</div>' +
+        otherSessionsHTML += '<div class="session-compact ' + colorClass + ' ' + typeClass + '" data-session="' + idx + '">' +
+          '<span class="session-name">' + name + badge + '</span>' +
+          '<span class="session-info">' + slideCount + ' ' + t.slides + '</span>' +
         '</div>';
       });
       
@@ -714,7 +991,11 @@ function getRemoteHTML() {
           '</span>' +
         '</div>' +
         
-        '<div class="sessions">' + sessionsHTML + '</div>' +
+        // Actief tijdblok bovenaan met slides
+        '<div class="active-session">' + activeSessionHTML + '</div>' +
+        
+        // Andere tijdblokken compact
+        (otherSessionsHTML ? '<div class="other-sessions">' + otherSessionsHTML + '</div>' : '') +
         
         '<div class="main-controls">' +
           '<button class="btn btn-nav" data-action="prevSlide">' + prevIcon + '</button>' +
@@ -725,8 +1006,8 @@ function getRemoteHTML() {
         '</div>' +
         
         '<div class="nav-row">' +
-          '<button class="btn btn-session" data-action="prevSession">◀◀ ' + t.prev + '</button>' +
-          '<button class="btn btn-session" data-action="nextSession">' + t.next + ' ▶▶</button>' +
+          '<button class="btn btn-session" data-action="prevSession">◀◀ ' + t.prevSession + '</button>' +
+          '<button class="btn btn-session" data-action="nextSession">' + t.nextSession + ' ▶▶</button>' +
         '</div>' +
         
         '<div class="footer">' +
@@ -734,49 +1015,109 @@ function getRemoteHTML() {
             '<span class="connection-dot ' + (connected ? '' : 'disconnected') + '"></span>' +
             '<span>' + (connected ? t.connected : t.notConnected) + '</span>' +
           '</div>' +
-        '</div>';
+        '</div>' +
+        
+        // Muziek bar
+        getMusicBarHTML();
       
       // Event delegation voor robuustere klik-handling
       attachEventListeners();
+      
+      // Scroll naar boven bij sessie wissel (actief tijdblok staat bovenaan)
+      if (lastActiveSessionIdx !== currentSessionIdx) {
+        lastActiveSessionIdx = currentSessionIdx;
+        window.scrollTo(0, 0);
+      }
+    }
+
+    // Track touch voor scroll vs tap detectie
+    let touchStartY = 0;
+    let touchStartX = 0;
+    let touchStartTime = 0;
+    let isScrolling = false;
+    const SCROLL_THRESHOLD = 10; // pixels beweging voor scroll detectie
+    const TAP_MAX_DURATION = 300; // ms
+    
+    document.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+      touchStartTime = Date.now();
+      isScrolling = false;
+    }, { passive: true });
+    
+    document.addEventListener('touchmove', (e) => {
+      const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
+      const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+      if (deltaY > SCROLL_THRESHOLD || deltaX > SCROLL_THRESHOLD) {
+        isScrolling = true;
+      }
+    }, { passive: true });
+    
+    function isTap() {
+      const duration = Date.now() - touchStartTime;
+      return !isScrolling && duration < TAP_MAX_DURATION;
     }
     
     function attachEventListeners() {
       const app = document.getElementById('app');
+      const isTouchDevice = 'ontouchend' in window;
       
-      // Gebruik touchend voor snellere respons op mobiel, met fallback naar click
-      const eventType = 'ontouchend' in window ? 'touchend' : 'click';
-      
+      // Buttons gebruiken click (werkt op beide)
       app.querySelectorAll('[data-action]').forEach(btn => {
-        btn.addEventListener(eventType, (e) => {
+        btn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
           const action = btn.dataset.action;
           send(action);
-        }, { passive: false });
+        });
       });
       
+      // Slides en sessions: op touch devices check voor tap vs scroll
       app.querySelectorAll('.slide[data-index]').forEach(slide => {
-        slide.addEventListener(eventType, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const index = parseInt(slide.dataset.index, 10);
-          if (!isNaN(index)) {
-            send('goToSlide', { index });
-          }
-        }, { passive: false });
+        if (isTouchDevice) {
+          slide.addEventListener('touchend', (e) => {
+            if (!isTap()) return; // Was scrolling, niet reageren
+            e.preventDefault();
+            e.stopPropagation();
+            const index = parseInt(slide.dataset.index, 10);
+            if (!isNaN(index)) {
+              send('goToSlide', { index });
+            }
+          }, { passive: false });
+        } else {
+          slide.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const index = parseInt(slide.dataset.index, 10);
+            if (!isNaN(index)) {
+              send('goToSlide', { index });
+            }
+          });
+        }
       });
       
-      app.querySelectorAll('.session[data-session]').forEach(session => {
-        session.addEventListener(eventType, (e) => {
-          // Alleen als niet op een slide geklikt
-          if (e.target.closest('.slide')) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const index = parseInt(session.dataset.session, 10);
-          if (!isNaN(index)) {
-            send('goToSession', { index });
-          }
-        }, { passive: false });
+      // Compacte sessies (andere tijdblokken)
+      app.querySelectorAll('.session-compact[data-session]').forEach(session => {
+        if (isTouchDevice) {
+          session.addEventListener('touchend', (e) => {
+            if (!isTap()) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const index = parseInt(session.dataset.session, 10);
+            if (!isNaN(index)) {
+              send('goToSession', { index });
+            }
+          }, { passive: false });
+        } else {
+          session.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const index = parseInt(session.dataset.session, 10);
+            if (!isNaN(index)) {
+              send('goToSession', { index });
+            }
+          });
+        }
       });
     }
     

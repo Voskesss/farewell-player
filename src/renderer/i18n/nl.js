@@ -123,6 +123,7 @@ export const nl = {
     orOpenUrl: 'Of open deze URL:',
     sameWifi: 'Zorg dat je telefoon op hetzelfde WiFi-netwerk zit.',
     openRemote: 'Afstandsbediening',
+    pinCode: 'PIN code',
   },
 
   // Errors

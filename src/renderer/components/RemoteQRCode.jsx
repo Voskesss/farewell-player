@@ -89,6 +89,14 @@ export default function RemoteQRCode({ onClose }) {
           </div>
         )}
 
+        {/* PIN Code */}
+        {serverInfo.pin && (
+          <div className="bg-blue-600 rounded-lg p-4 mb-4 text-center">
+            <p className="text-blue-200 text-xs mb-1">{t('remote.pinCode')}</p>
+            <p className="text-white font-mono text-3xl font-bold tracking-widest">{serverInfo.pin}</p>
+          </div>
+        )}
+
         {/* URL */}
         {remoteUrl && (
           <div className="bg-slate-700 rounded-lg p-3 mb-4">

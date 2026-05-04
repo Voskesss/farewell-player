@@ -123,6 +123,7 @@ export const en = {
     orOpenUrl: 'Or open this URL:',
     sameWifi: 'Make sure your phone is on the same WiFi network.',
     openRemote: 'Remote Control',
+    pinCode: 'PIN code',
   },
 
   // Errors

@@ -123,6 +123,7 @@ export const de = {
     orOpenUrl: 'Oder öffnen Sie diese URL:',
     sameWifi: 'Stellen Sie sicher, dass Ihr Handy im selben WiFi-Netzwerk ist.',
     openRemote: 'Fernbedienung',
+    pinCode: 'PIN-Code',
   },
 
   // Errors
