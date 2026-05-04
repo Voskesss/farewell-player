@@ -1581,6 +1581,11 @@ export default function Controller({
                 />
               )}
             </div>
+            <div className="shrink-0 border-t border-slate-800 px-3 py-2">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                💡 {t('controller.editPresentationHint')}
+              </p>
+            </div>
           </aside>
         </div>
         {/* Filmstrook — alle dia's (groter, PowerPoint-achtig + dia-nummer) */}

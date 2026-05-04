@@ -86,6 +86,7 @@ export const en = {
     remoteAutoStartTooltip: 'Remote "next" also starts playback automatically (on = R500/clicker, off = keyboard)',
     remoteHint:
       'Remote: works on the presentation window (projector screen). Page Down, Enter, period, or arrow right/down = next slide; Page Up, comma, or arrow left/up = previous; Space or media play/pause toggles play/pause. Without a remote: focus that window and try those keys. In-app remapping is not available yet; many clickers can be set to Page Down/Page Up in the vendor software.',
+    editPresentationHint: 'Want to edit the presentation? Go to your profile on thelastfarewell.nl and export again.',
   },
 
   // Music Player
