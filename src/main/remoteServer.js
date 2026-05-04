@@ -919,6 +919,7 @@ function getRemoteHTML() {
     };
     let ws = null;
     let connected = false;
+    let hasReloaded = sessionStorage.getItem('farewell_reloaded') === 'true';
     let lastCommandTime = 0;
     let lastActiveSessionIdx = -1;
     let lastSlideIdx = -1;
@@ -936,6 +937,15 @@ function getRemoteHTML() {
         connected = true;
         console.log('Connected to server');
         render();
+        // Auto-reload na 1.5s als geen presentatie (iOS Safari fix) - alleen eerste keer
+        if (!hasReloaded) {
+          setTimeout(() => {
+            if (connected && !state.presentation) {
+              sessionStorage.setItem('farewell_reloaded', 'true');
+              location.reload();
+            }
+          }, 1500);
+        }
       };
       
       ws.onmessage = (event) => {
@@ -1128,9 +1138,6 @@ function getRemoteHTML() {
           '<h1>' + t.title + '</h1>' +
           '<div class="title">' + (state.presentation.name || 'Presentatie') + '</div>' +
         '</div>' +
-
-        // Grote pauzeer banner als niet speelt
-        (!state.isPlaying ? '<div class="paused-banner">⏸ ' + t.paused.toUpperCase() + '</div>' : '') +
 
         '<div class="status">' +
           '<span>' + t.slide + ' ' + (state.currentSlideIndex + 1) + ' ' + t.of + ' ' + slides.length + '</span>' +
