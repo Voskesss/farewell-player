@@ -17,6 +17,15 @@ export const de = {
     orClick: 'oder klicken Sie, um eine Datei auszuwählen',
   },
 
+  // Systemanforderungen
+  requirements: {
+    title: 'Systemanforderungen',
+    mac: 'macOS 10.13 (High Sierra) oder höher',
+    windows: 'Windows 10 oder höher',
+    recommended: 'Empfohlen: Computer ab 2015 oder neuer',
+    remote: 'Handy-Fernbedienung: gleiches WLAN-Netzwerk, moderner Browser (Chrome empfohlen)',
+  },
+
   // Controller - Navigation
   controller: {
     // Button tooltips

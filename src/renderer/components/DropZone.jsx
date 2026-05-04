@@ -135,6 +135,17 @@ export default function DropZone({ onFileLoad }) {
           {t('app.version')} {appVersion || '...'} • {t('app.madeBy')}
         </p>
       </div>
+
+      {/* Systeemvereisten */}
+      <div className="absolute bottom-4 left-4 text-left max-w-sm">
+        <p className="text-slate-600 text-xs font-medium mb-1">{t('requirements.title')}</p>
+        <ul className="text-slate-500 text-xs space-y-0.5">
+          <li>• {t('requirements.mac')}</li>
+          <li>• {t('requirements.windows')}</li>
+          <li>• {t('requirements.recommended')}</li>
+          <li>• {t('requirements.remote')}</li>
+        </ul>
+      </div>
     </div>
   )
 }

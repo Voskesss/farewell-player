@@ -17,6 +17,15 @@ export const nl = {
     orClick: 'of klik om een bestand te selecteren',
   },
 
+  // Systeemvereisten
+  requirements: {
+    title: 'Systeemvereisten',
+    mac: 'macOS 10.13 (High Sierra) of hoger',
+    windows: 'Windows 10 of hoger',
+    recommended: 'Aanbevolen: computer van 2015 of nieuwer',
+    remote: 'Telefoon remote: zelfde WiFi-netwerk, moderne browser (Chrome aanbevolen)',
+  },
+
   // Controller - Navigation
   controller: {
     // Tooltips voor knoppen

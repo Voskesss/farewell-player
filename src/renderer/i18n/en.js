@@ -17,6 +17,15 @@ export const en = {
     orClick: 'or click to select a file',
   },
 
+  // System requirements
+  requirements: {
+    title: 'System Requirements',
+    mac: 'macOS 10.13 (High Sierra) or higher',
+    windows: 'Windows 10 or higher',
+    recommended: 'Recommended: computer from 2015 or newer',
+    remote: 'Phone remote: same WiFi network, modern browser (Chrome recommended)',
+  },
+
   // Controller - Navigation
   controller: {
     // Button tooltips
