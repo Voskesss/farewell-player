@@ -138,23 +138,23 @@ function getRemoteHTML() {
       background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
       color: white;
       min-height: 100vh;
-      padding: 16px;
-      padding-bottom: env(safe-area-inset-bottom, 16px);
+      padding: 12px;
+      padding-bottom: env(safe-area-inset-bottom, 12px);
     }
     
     .header {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     
     .header h1 {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 600;
       color: #94a3b8;
     }
     
     .header .title {
-      font-size: 16px;
+      font-size: 14px;
       color: #64748b;
       margin-top: 4px;
       white-space: nowrap;
@@ -166,8 +166,8 @@ function getRemoteHTML() {
       display: flex;
       justify-content: center;
       gap: 16px;
-      margin-bottom: 20px;
-      font-size: 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
       color: #94a3b8;
     }
     
@@ -179,27 +179,42 @@ function getRemoteHTML() {
       color: #f59e0b;
     }
     
-    /* Sessies grid */
+    /* Sessies */
     .sessions {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-bottom: 24px;
-      max-height: 35vh;
+      gap: 10px;
+      margin-bottom: 20px;
+      max-height: 45vh;
       overflow-y: auto;
     }
     
     .session {
-      background: #334155;
-      border-radius: 12px;
-      padding: 12px;
-      border: 2px solid transparent;
+      border-radius: 10px;
+      padding: 10px;
+      border-left: 4px solid;
     }
     
+    /* Sessie kleuren - matchen met Controller */
+    .session.color-0 { background: rgba(59,130,246,0.15); border-color: #3b82f6; }
+    .session.color-1 { background: rgba(16,185,129,0.15); border-color: #10b981; }
+    .session.color-2 { background: rgba(245,158,11,0.15); border-color: #f59e0b; }
+    .session.color-3 { background: rgba(239,68,68,0.15); border-color: #ef4444; }
+    .session.color-4 { background: rgba(168,85,247,0.15); border-color: #a855f7; }
+    .session.color-5 { background: rgba(236,72,153,0.15); border-color: #ec4899; }
+    .session.color-6 { background: rgba(6,182,212,0.15); border-color: #06b6d4; }
+    .session.color-7 { background: rgba(217,70,239,0.15); border-color: #d946ef; }
+    .session.color-8 { background: rgba(132,204,22,0.15); border-color: #84cc16; }
+    
     .session.active {
-      border-color: #3b82f6;
-      background: #1e3a5f;
+      box-shadow: 0 0 0 2px white;
     }
+    
+    /* Loop sessie */
+    .session.loop { border-style: dashed; }
+    
+    /* Speaker sessie */
+    .session.speaker { background: rgba(139,92,246,0.2); border-color: #8b5cf6; }
     
     .session-header {
       display: flex;
@@ -210,58 +225,99 @@ function getRemoteHTML() {
     
     .session-name {
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .session-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.15);
     }
     
     .session-info {
-      font-size: 12px;
+      font-size: 11px;
       color: #94a3b8;
     }
     
+    /* Slides met thumbnails */
     .slides {
       display: flex;
       gap: 6px;
       overflow-x: auto;
       padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
     }
     
     .slide {
-      width: 48px;
-      height: 36px;
-      background: #475569;
+      width: 56px;
+      height: 42px;
+      background: #1e293b;
       border-radius: 6px;
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
-      color: #94a3b8;
+      font-size: 10px;
+      color: #64748b;
       border: 2px solid transparent;
       cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    
+    .slide .number {
+      position: relative;
+      z-index: 1;
+      background: rgba(0,0,0,0.6);
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-size: 9px;
     }
     
     .slide.active {
-      border-color: #3b82f6;
-      background: #3b82f6;
-      color: white;
+      border-color: white;
+      box-shadow: 0 0 8px rgba(255,255,255,0.4);
     }
     
-    .slide.video::after {
-      content: '▶';
-      font-size: 8px;
+    .slide.video::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 0;
+      height: 0;
+      border-left: 6px solid white;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      z-index: 2;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
     }
     
     /* Grote controls */
     .main-controls {
       display: flex;
       justify-content: center;
-      gap: 16px;
-      margin-bottom: 24px;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 20px;
     }
     
     .btn {
       border: none;
-      border-radius: 16px;
+      border-radius: 50%;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -273,14 +329,13 @@ function getRemoteHTML() {
     }
     
     .btn:active {
-      transform: scale(0.95);
+      transform: scale(0.92);
       opacity: 0.8;
     }
     
     .btn-large {
-      width: 80px;
-      height: 80px;
-      font-size: 32px;
+      width: 72px;
+      height: 72px;
     }
     
     .btn-play {
@@ -292,37 +347,50 @@ function getRemoteHTML() {
       background: #f59e0b;
     }
     
+    .btn-play svg {
+      width: 32px;
+      height: 32px;
+    }
+    
     .btn-nav {
-      width: 64px;
-      height: 64px;
-      background: #475569;
+      width: 56px;
+      height: 56px;
+      background: #334155;
       color: white;
-      font-size: 24px;
+    }
+    
+    .btn-nav svg {
+      width: 24px;
+      height: 24px;
     }
     
     /* Navigatie knoppen */
     .nav-row {
       display: flex;
       justify-content: center;
-      gap: 12px;
+      gap: 10px;
       margin-bottom: 16px;
     }
     
     .btn-session {
       flex: 1;
-      max-width: 160px;
-      height: 48px;
+      max-width: 150px;
+      height: 44px;
       background: #334155;
       color: white;
-      font-size: 13px;
-      gap: 6px;
+      font-size: 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
     }
     
     /* Footer info */
     .footer {
       text-align: center;
       color: #64748b;
-      font-size: 12px;
+      font-size: 11px;
     }
     
     .connection {
@@ -332,8 +400,8 @@ function getRemoteHTML() {
     }
     
     .connection-dot {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: #22c55e;
     }
@@ -418,6 +486,12 @@ function getRemoteHTML() {
       return 0;
     }
     
+    function getSessionType(session) {
+      if (session?.loop || session?.loopMode) return 'loop';
+      if (session?.speakerMode || (!session?.audio?.url && !session?.audioTracks?.length)) return 'speaker';
+      return 'normal';
+    }
+    
     function render() {
       const app = document.getElementById('app');
       
@@ -440,23 +514,43 @@ function getRemoteHTML() {
         const session = range.session || {};
         const name = session.name || 'Sessie ' + (idx + 1);
         const slideCount = range.end - range.start + 1;
+        const sessionType = getSessionType(session);
+        const colorClass = 'color-' + (idx % 9);
+        
+        let badge = '';
+        if (sessionType === 'loop') badge = '<span class="session-badge">🔄 Loop</span>';
+        else if (sessionType === 'speaker') badge = '<span class="session-badge">🎤 Spreker</span>';
         
         let slidesHTML = '';
         for (let i = range.start; i <= range.end; i++) {
           const slide = slides[i];
           const isSlideActive = i === state.currentSlideIndex;
           const isVideo = slide?.isVideo ? 'video' : '';
-          slidesHTML += '<div class="slide ' + (isSlideActive ? 'active' : '') + ' ' + isVideo + '" onclick="send(\\'goToSlide\\', {index: ' + i + '})">' + (i + 1) + '</div>';
+          const thumbUrl = slide?.url || '';
+          
+          slidesHTML += '<div class="slide ' + (isSlideActive ? 'active' : '') + ' ' + isVideo + '" onclick="event.stopPropagation(); send(\\'goToSlide\\', {index: ' + i + '})">';
+          if (thumbUrl && !slide?.isVideo) {
+            slidesHTML += '<img src="' + thumbUrl + '" alt="" loading="lazy" />';
+          }
+          slidesHTML += '<span class="number">' + (i + 1) + '</span>';
+          slidesHTML += '</div>';
         }
         
-        sessionsHTML += '<div class="session ' + (isActive ? 'active' : '') + '" onclick="send(\\'goToSession\\', {index: ' + idx + '})">' +
+        const typeClass = sessionType !== 'normal' ? sessionType : '';
+        sessionsHTML += '<div class="session ' + colorClass + ' ' + typeClass + ' ' + (isActive ? 'active' : '') + '" onclick="send(\\'goToSession\\', {index: ' + idx + '})">' +
           '<div class="session-header">' +
-            '<span class="session-name">' + name + '</span>' +
+            '<span class="session-name">' + name + badge + '</span>' +
             '<span class="session-info">' + slideCount + ' slide' + (slideCount > 1 ? 's' : '') + '</span>' +
           '</div>' +
           '<div class="slides">' + slidesHTML + '</div>' +
         '</div>';
       });
+      
+      // SVG icons voor play/pause
+      const playIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+      const pauseIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      const prevIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>';
+      const nextIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
       
       app.innerHTML = 
         '<div class="header">' +
@@ -474,16 +568,16 @@ function getRemoteHTML() {
         '<div class="sessions">' + sessionsHTML + '</div>' +
         
         '<div class="main-controls">' +
-          '<button class="btn btn-nav" onclick="send(\\'prevSlide\\')">◀</button>' +
+          '<button class="btn btn-nav" onclick="send(\\'prevSlide\\')">' + prevIcon + '</button>' +
           '<button class="btn btn-large btn-play ' + (state.isPlaying ? 'playing' : '') + '" onclick="send(\\'togglePlay\\')">' +
-            (state.isPlaying ? '⏸' : '▶') +
+            (state.isPlaying ? pauseIcon : playIcon) +
           '</button>' +
-          '<button class="btn btn-nav" onclick="send(\\'nextSlide\\')">▶</button>' +
+          '<button class="btn btn-nav" onclick="send(\\'nextSlide\\')">' + nextIcon + '</button>' +
         '</div>' +
         
         '<div class="nav-row">' +
-          '<button class="btn btn-session" onclick="send(\\'prevSession\\')">◀◀ Vorige sessie</button>' +
-          '<button class="btn btn-session" onclick="send(\\'nextSession\\')">Volgende sessie ▶▶</button>' +
+          '<button class="btn btn-session" onclick="send(\\'prevSession\\')">◀◀ Vorige</button>' +
+          '<button class="btn btn-session" onclick="send(\\'nextSession\\')">Volgende ▶▶</button>' +
         '</div>' +
         
         '<div class="footer">' +
