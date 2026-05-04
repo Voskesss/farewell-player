@@ -490,9 +490,14 @@ export default function Controller({
   const currentSlideIsVideo = slides[currentSlideIndex]?.isVideo
 
   // Auto-play video wanneer isPlaying true is en huidige slide een video is
+  // OF bij spreker sessie (video's spelen altijd automatisch af bij spreker)
   useEffect(() => {
     if (videoRef.current && currentSlideIsVideo) {
-      if (isPlaying) {
+      const currentSession = sessionSlideRanges[currentSessionIndex]?.session
+      const isSpeakerSession = currentSession?.speakerMode
+      
+      // Video speelt af als: isPlaying OF spreker sessie
+      if (isPlaying || isSpeakerSession) {
         const currentSlide = slides[currentSlideIndex]
         // Reset naar starttijd als nodig
         if (currentSlide.videoStart > 0) {
@@ -505,7 +510,7 @@ export default function Controller({
         videoRef.current.pause()
       }
     }
-  }, [isPlaying, currentSlideIndex, currentSlideIsVideo, slides])
+  }, [isPlaying, currentSlideIndex, currentSlideIsVideo, slides, sessionSlideRanges, currentSessionIndex])
 
   // Check of huidige sessie speakerMode heeft (handmatig doorklikken)
   const currentSessionIsSpeakerMode = sessionSlideRanges[currentSessionIndex]?.session?.speakerMode
@@ -606,7 +611,7 @@ export default function Controller({
       switch (e.code) {
         case 'Space':
           e.preventDefault()
-          setIsPlaying(prev => !prev)
+          togglePlay()
           break
         // "Volgende" toetsen: eerst play, dan pas volgende slide
         case 'ArrowRight':
@@ -1054,7 +1059,7 @@ export default function Controller({
       
       switch (msg.command) {
         case 'togglePlay':
-          setIsPlaying(prev => !prev)
+          togglePlay()
           break
         case 'nextSlide':
           if (currentSlideIndex < slides.length - 1) {
@@ -1142,6 +1147,42 @@ export default function Controller({
   }, [presentationWindowOpen, currentSlideIndex, slides])
 
   const togglePlay = () => {
+    const currentRange = sessionSlideRanges[currentSessionIndex]
+    const currentSession = currentRange?.session
+    const isLoopSession = currentSession?.loop || currentSession?.loopMode
+    const isSpeakerSession = currentSession?.speakerMode
+    const isLastSlideInSession = currentSlideIndex === currentRange?.end
+    
+    // Spreker sessie: altijd volgende slide (of volgende tijdblok), ongeacht play state
+    if (isSpeakerSession) {
+      if (!isLastSlideInSession) {
+        console.log('[Controller] togglePlay in speaker session - next slide')
+        goToSlide(currentSlideIndex + 1)
+      } else if (currentSessionIndex < sessionSlideRanges.length - 1) {
+        const nextRange = sessionSlideRanges[currentSessionIndex + 1]
+        console.log('[Controller] togglePlay in speaker session (last slide) - advancing to next session:', currentSessionIndex + 1)
+        goToSlide(nextRange.start)
+      }
+      return
+    }
+    
+    // Loop sessie: als speelt, ga naar volgende tijdblok. Anders: start.
+    if (isLoopSession) {
+      if (isPlaying) {
+        if (currentSessionIndex < sessionSlideRanges.length - 1) {
+          const nextRange = sessionSlideRanges[currentSessionIndex + 1]
+          console.log('[Controller] togglePlay in loop session - advancing to next session:', currentSessionIndex + 1)
+          goToSlide(nextRange.start)
+        } else {
+          setIsPlaying(false)
+        }
+      } else {
+        setIsPlaying(true)
+      }
+      return
+    }
+    
+    // Normale sessie: toggle play/pause
     setIsPlaying(!isPlaying)
   }
 
