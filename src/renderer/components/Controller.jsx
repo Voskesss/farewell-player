@@ -1048,6 +1048,34 @@ export default function Controller({
     // Normale sessie: toggle play/pause
     setIsPlaying(prev => !prev)
   }, [sessionSlideRanges, currentSessionIndex, currentSlideIndex, isPlaying, goToSlide])
+
+  // Helper: ga naar volgende sessie (skip lege sessies)
+  const goToNextSession = useCallback(() => {
+    const si = getSessionIndexForSlide(currentSlideIndex)
+    let nextIdx = si + 1
+    while (nextIdx < sessionSlideRanges.length) {
+      const range = sessionSlideRanges[nextIdx]
+      if (range.start <= range.end) {
+        goToSlide(range.start)
+        return
+      }
+      nextIdx++
+    }
+  }, [currentSlideIndex, sessionSlideRanges, getSessionIndexForSlide, goToSlide])
+
+  // Helper: ga naar vorige sessie (skip lege sessies)
+  const goToPrevSession = useCallback(() => {
+    const si = getSessionIndexForSlide(currentSlideIndex)
+    let prevIdx = si - 1
+    while (prevIdx >= 0) {
+      const range = sessionSlideRanges[prevIdx]
+      if (range.start <= range.end && range.start !== currentSlideIndex) {
+        goToSlide(range.start)
+        return
+      }
+      prevIdx--
+    }
+  }, [currentSlideIndex, sessionSlideRanges, getSessionIndexForSlide, goToSlide])
   
   // Sync state naar remote control
   useEffect(() => {
@@ -1105,32 +1133,12 @@ export default function Controller({
             goToSlide(currentSlideIndex - 1)
           }
           break
-        case 'nextSession': {
-          const si = getSessionIndexForSlide(currentSlideIndex)
-          if (si < sessionSlideRanges.length - 1) {
-            goToSlide(sessionSlideRanges[si + 1].start)
-          }
+        case 'nextSession':
+          goToNextSession()
           break
-        }
-        case 'prevSession': {
-          const si = getSessionIndexForSlide(currentSlideIndex)
-          console.log('[Controller] prevSession: currentSlide=', currentSlideIndex, 'sessionIndex=', si, 'total sessions=', sessionSlideRanges.length)
-          console.log('[Controller] All session ranges:', sessionSlideRanges.map((r, i) => `${i}: ${r.start}-${r.end}`).join(', '))
-          if (si > 0) {
-            const prevStart = sessionSlideRanges[si - 1].start
-            console.log('[Controller] Going to session', si - 1, 'slide', prevStart)
-            // Als vorige sessie dezelfde start heeft, ga naar sessie daarvoor
-            if (prevStart === currentSlideIndex && si > 1) {
-              console.log('[Controller] Same slide, going to session', si - 2, 'instead')
-              goToSlide(sessionSlideRanges[si - 2].start)
-            } else {
-              goToSlide(prevStart)
-            }
-          } else {
-            console.log('[Controller] Already at first session, cannot go back')
-          }
+        case 'prevSession':
+          goToPrevSession()
           break
-        }
         case 'goToSlide':
           if (typeof msg.index === 'number') {
             goToSlide(msg.index)
@@ -1161,7 +1169,7 @@ export default function Controller({
     return () => {
       window.electronAPI?.removeRemoteCommandListener()
     }
-  }, [currentSlideIndex, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide, togglePlay])
+  }, [currentSlideIndex, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide, togglePlay, goToNextSession, goToPrevSession])
 
   // Bediening fullscreen zodra de controller zichtbaar is.
   // Geen cleanup naar windowed hier: React 18 Strict Mode zou dan in dev kort false→true flikkeren.
@@ -1458,12 +1466,7 @@ export default function Controller({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const si = getSessionIndexForSlide(currentSlideIndex)
-                    if (si > 0) {
-                      goToSlide(sessionSlideRanges[si - 1].start)
-                    }
-                  }}
+                  onClick={goToPrevSession}
                   disabled={getSessionIndexForSlide(currentSlideIndex) === 0}
                   className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-lg transition"
                   title={`${t('controller.previousSession')} (↑)`}
@@ -1514,12 +1517,7 @@ export default function Controller({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const si = getSessionIndexForSlide(currentSlideIndex)
-                    if (si < sessionSlideRanges.length - 1) {
-                      goToSlide(sessionSlideRanges[si + 1].start)
-                    }
-                  }}
+                  onClick={goToNextSession}
                   disabled={getSessionIndexForSlide(currentSlideIndex) === sessionSlideRanges.length - 1}
                   className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-lg transition"
                   title={`${t('controller.nextSession')} (↓)`}
