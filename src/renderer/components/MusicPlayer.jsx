@@ -23,6 +23,22 @@ export default function MusicPlayer({
   const audioRef = useRef(null)
   const { t } = useTranslation()
 
+  // Refs voor callbacks om re-renders te voorkomen (callbacks kunnen inline zijn in parent)
+  const onTrackChangeRef = useRef(onTrackChange)
+  const onAudioStateChangeRef = useRef(onAudioStateChange)
+  const onAudioDurationRef = useRef(onAudioDuration)
+  const onAudioEndedRef = useRef(onAudioEnded)
+  const onAudioRefChangeRef = useRef(onAudioRefChange)
+  
+  // Update refs bij elke render (maar dit triggert geen re-render)
+  useEffect(() => {
+    onTrackChangeRef.current = onTrackChange
+    onAudioStateChangeRef.current = onAudioStateChange
+    onAudioDurationRef.current = onAudioDuration
+    onAudioEndedRef.current = onAudioEnded
+    onAudioRefChangeRef.current = onAudioRefChange
+  })
+
   // Haal alle embedded tracks op (meerdere tracks per sessie)
   const embeddedTracks = session?.audioTracks?.length > 0 
     ? session.audioTracks 
@@ -31,20 +47,24 @@ export default function MusicPlayer({
   const hasEmbeddedAudio = embeddedTracks.length > 0 && embeddedTracks.some(t => t?.url)
   const currentTrack = embeddedTracks[currentTrackIndex]
   
-  // Debug logging
-  console.log('MusicPlayer session:', session?.id, 'audioTracks:', session?.audioTracks, 'audio:', session?.audio, 'embeddedTracks:', embeddedTracks)
+  // Ref om laatste doorgegeven track info te onthouden (voorkomt onnodige callbacks)
+  const lastTrackKeyRef = useRef('')
 
-  // Geef track info door bij verandering
+  // Geef track info door bij verandering (alleen als track echt verandert)
   useEffect(() => {
-    if (onTrackChange && currentTrack) {
-      const trackName = currentTrack.name || currentTrack.file?.split('/').pop()?.replace(/\.(mp3|wav|m4a|ogg)$/i, '') || 'Muziek'
-      onTrackChange({
-        name: trackName,
-        index: currentTrackIndex,
-        total: embeddedTracks.length
-      })
-    }
-  }, [currentTrackIndex, currentTrack, embeddedTracks.length, onTrackChange])
+    if (!currentTrack) return
+    
+    const trackKey = `${session?.id}-${currentTrackIndex}-${embeddedTracks.length}`
+    if (trackKey === lastTrackKeyRef.current) return
+    lastTrackKeyRef.current = trackKey
+    
+    const trackName = currentTrack.name || currentTrack.file?.split('/').pop()?.replace(/\.(mp3|wav|m4a|ogg)$/i, '') || 'Muziek'
+    onTrackChangeRef.current?.({
+      name: trackName,
+      index: currentTrackIndex,
+      total: embeddedTracks.length
+    })
+  }, [currentTrackIndex, currentTrack, embeddedTracks.length, session?.id])
 
   // Lokaal bestand selecteren
   const handleSelectLocalFile = async () => {
@@ -79,7 +99,7 @@ export default function MusicPlayer({
         audioRef.current.play()
       }
       setInternalIsPlaying(!internalIsPlaying)
-      onAudioStateChange?.(!internalIsPlaying)
+      onAudioStateChangeRef.current?.(!internalIsPlaying)
     }
   }
 
@@ -94,9 +114,8 @@ export default function MusicPlayer({
       const dur = audioRef.current.duration
       setDuration(dur)
       // Geef duur door aan Controller voor sessie timing
-      if (onAudioDuration && dur > 0) {
-        console.log('[MusicPlayer] Audio duration:', dur)
-        onAudioDuration(dur)
+      if (dur > 0) {
+        onAudioDurationRef.current?.(dur)
       }
     }
   }
@@ -134,7 +153,7 @@ export default function MusicPlayer({
       setCurrentTime(0)
     } else {
       setInternalIsPlaying(false)
-      onAudioStateChange?.(false)
+      onAudioStateChangeRef.current?.(false)
     }
   }
 
@@ -166,39 +185,36 @@ export default function MusicPlayer({
   // Stop muziek wanneer sessie niet meer actief is
   useEffect(() => {
     if (!isCurrentSession && audioRef.current && internalIsPlaying) {
-      console.log('[MusicPlayer] Stopping audio - session no longer active:', session?.id)
       audioRef.current.pause()
       setInternalIsPlaying(false)
-      onAudioStateChange?.(false)
+      onAudioStateChangeRef.current?.(false)
     }
-  }, [isCurrentSession, session?.id, internalIsPlaying, onAudioStateChange])
+  }, [isCurrentSession, session?.id, internalIsPlaying])
 
   // Sync externe isPlaying state met audio element
   useEffect(() => {
     if (!audioRef.current || !currentAudioUrl) return
     
     if (externalIsPlaying && !internalIsPlaying) {
-      console.log('[MusicPlayer] Starting audio (external play):', session?.id)
       audioRef.current.play().then(() => {
         setInternalIsPlaying(true)
-        onAudioStateChange?.(true)
+        onAudioStateChangeRef.current?.(true)
       }).catch(err => {
         console.warn('[MusicPlayer] Play blocked:', err)
       })
     } else if (!externalIsPlaying && internalIsPlaying) {
-      console.log('[MusicPlayer] Pausing audio (external pause):', session?.id)
       audioRef.current.pause()
       setInternalIsPlaying(false)
-      onAudioStateChange?.(false)
+      onAudioStateChangeRef.current?.(false)
     }
-  }, [externalIsPlaying, internalIsPlaying, currentAudioUrl, session?.id, onAudioStateChange])
+  }, [externalIsPlaying, internalIsPlaying, currentAudioUrl, session?.id])
 
   // Geef audio ref door aan controller via callback
   useEffect(() => {
-    if (onAudioRefChange && audioRef.current) {
-      onAudioRefChange(audioRef.current)
+    if (audioRef.current) {
+      onAudioRefChangeRef.current?.(audioRef.current)
     }
-  }, [onAudioRefChange, audioRef.current])
+  }, [])
 
   return (
     <div className={`rounded-lg overflow-hidden ${isCurrentSession ? 'bg-slate-800' : 'bg-slate-800/50'}`}>
@@ -366,10 +382,9 @@ export default function MusicPlayer({
                       return
                     }
                     // Geen loop: audio is klaar - meld aan Controller
-                    console.log('[MusicPlayer] Audio ended - notifying controller')
                     setInternalIsPlaying(false)
-                    onAudioStateChange?.(false)
-                    onAudioEnded?.()  // Trigger sessie stop check
+                    onAudioStateChangeRef.current?.(false)
+                    onAudioEndedRef.current?.()
                   }}
                 />
 

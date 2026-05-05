@@ -434,22 +434,18 @@ export default function Controller({
     
     // Prioriteit: handmatige duur > video duur > audio duur > slides duur
     if (manualDuration && manualDuration > 0) {
-      console.log(`[Controller] Session ${sessionIdx} using manual duration: ${manualDuration}s`)
       return manualDuration
     }
     
     // Video compilatie duur uit manifest (belangrijker dan audio voor video sessies)
     if (videoDur > 0) {
-      console.log(`[Controller] Session ${sessionIdx} using video duration: ${videoDur}s`)
       return videoDur
     }
     
     if (audioDur > 0) {
-      console.log(`[Controller] Session ${sessionIdx} using audio duration: ${audioDur}s`)
       return audioDur
     }
     
-    console.log(`[Controller] Session ${sessionIdx} using slide-based duration: ${slideBasedDuration}s`)
     return slideBasedDuration
   }, [sessionSlideRanges, settings.defaultSlideDuration, audioDurations])
 
@@ -1014,6 +1010,44 @@ export default function Controller({
       sessionIndex: sessionIdx
     }
   }, [currentSlideIndex, sessionSlideRanges, getSessionIndexForSlide, currentTrackInfo])
+
+  // Toggle play functie - moet vóór remote useEffect staan
+  const togglePlay = useCallback(() => {
+    const currentRange = sessionSlideRanges[currentSessionIndex]
+    const currentSession = currentRange?.session
+    const isLoopSession = currentSession?.loop || currentSession?.loopMode
+    const isSpeakerSession = currentSession?.speakerMode
+    const isLastSlideInSession = currentSlideIndex === currentRange?.end
+    
+    // Spreker sessie: altijd volgende slide (of volgende tijdblok), ongeacht play state
+    if (isSpeakerSession) {
+      if (!isLastSlideInSession) {
+        goToSlide(currentSlideIndex + 1)
+      } else if (currentSessionIndex < sessionSlideRanges.length - 1) {
+        const nextRange = sessionSlideRanges[currentSessionIndex + 1]
+        goToSlide(nextRange.start)
+      }
+      return
+    }
+    
+    // Loop sessie: als speelt, ga naar volgende tijdblok. Anders: start.
+    if (isLoopSession) {
+      if (isPlaying) {
+        if (currentSessionIndex < sessionSlideRanges.length - 1) {
+          const nextRange = sessionSlideRanges[currentSessionIndex + 1]
+          goToSlide(nextRange.start)
+        } else {
+          setIsPlaying(false)
+        }
+      } else {
+        setIsPlaying(true)
+      }
+      return
+    }
+    
+    // Normale sessie: toggle play/pause
+    setIsPlaying(prev => !prev)
+  }, [sessionSlideRanges, currentSessionIndex, currentSlideIndex, isPlaying, goToSlide])
   
   // Sync state naar remote control
   useEffect(() => {
@@ -1115,7 +1149,7 @@ export default function Controller({
     return () => {
       window.electronAPI?.removeRemoteCommandListener()
     }
-  }, [currentSlideIndex, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide])
+  }, [currentSlideIndex, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide, togglePlay])
 
   // Bediening fullscreen zodra de controller zichtbaar is.
   // Geen cleanup naar windowed hier: React 18 Strict Mode zou dan in dev kort false→true flikkeren.
@@ -1145,46 +1179,6 @@ export default function Controller({
       v.volume = (s.videoVolume ?? 100) / 100
     }
   }, [presentationWindowOpen, currentSlideIndex, slides])
-
-  const togglePlay = () => {
-    const currentRange = sessionSlideRanges[currentSessionIndex]
-    const currentSession = currentRange?.session
-    const isLoopSession = currentSession?.loop || currentSession?.loopMode
-    const isSpeakerSession = currentSession?.speakerMode
-    const isLastSlideInSession = currentSlideIndex === currentRange?.end
-    
-    // Spreker sessie: altijd volgende slide (of volgende tijdblok), ongeacht play state
-    if (isSpeakerSession) {
-      if (!isLastSlideInSession) {
-        console.log('[Controller] togglePlay in speaker session - next slide')
-        goToSlide(currentSlideIndex + 1)
-      } else if (currentSessionIndex < sessionSlideRanges.length - 1) {
-        const nextRange = sessionSlideRanges[currentSessionIndex + 1]
-        console.log('[Controller] togglePlay in speaker session (last slide) - advancing to next session:', currentSessionIndex + 1)
-        goToSlide(nextRange.start)
-      }
-      return
-    }
-    
-    // Loop sessie: als speelt, ga naar volgende tijdblok. Anders: start.
-    if (isLoopSession) {
-      if (isPlaying) {
-        if (currentSessionIndex < sessionSlideRanges.length - 1) {
-          const nextRange = sessionSlideRanges[currentSessionIndex + 1]
-          console.log('[Controller] togglePlay in loop session - advancing to next session:', currentSessionIndex + 1)
-          goToSlide(nextRange.start)
-        } else {
-          setIsPlaying(false)
-        }
-      } else {
-        setIsPlaying(true)
-      }
-      return
-    }
-    
-    // Normale sessie: toggle play/pause
-    setIsPlaying(!isPlaying)
-  }
 
   const currentSlide = slides[currentSlideIndex]
   const nextSlide = currentSlideIndex + 1 < slides.length ? slides[currentSlideIndex + 1] : null

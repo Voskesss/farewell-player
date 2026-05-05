@@ -1038,7 +1038,7 @@ function getRemoteHTML() {
       const t = translations[lang]; // Haal actuele vertaling op
       
       if (!connected) {
-        app.innerHTML = '<div class="no-presentation"><h2>' + t.disconnected + '</h2><p>' + t.reconnecting + '</p></div>';
+        app.innerHTML = '<div class="no-presentation"><h2>' + t.disconnected + '</h2><p>' + t.reconnecting + '</p><button class="refresh-btn" onclick="location.reload()">↻ ' + t.refresh + '</button></div>';
         return;
       }
       
