@@ -1114,8 +1114,20 @@ export default function Controller({
         }
         case 'prevSession': {
           const si = getSessionIndexForSlide(currentSlideIndex)
+          console.log('[Controller] prevSession: currentSlide=', currentSlideIndex, 'sessionIndex=', si, 'total sessions=', sessionSlideRanges.length)
+          console.log('[Controller] All session ranges:', sessionSlideRanges.map((r, i) => `${i}: ${r.start}-${r.end}`).join(', '))
           if (si > 0) {
-            goToSlide(sessionSlideRanges[si - 1].start)
+            const prevStart = sessionSlideRanges[si - 1].start
+            console.log('[Controller] Going to session', si - 1, 'slide', prevStart)
+            // Als vorige sessie dezelfde start heeft, ga naar sessie daarvoor
+            if (prevStart === currentSlideIndex && si > 1) {
+              console.log('[Controller] Same slide, going to session', si - 2, 'instead')
+              goToSlide(sessionSlideRanges[si - 2].start)
+            } else {
+              goToSlide(prevStart)
+            }
+          } else {
+            console.log('[Controller] Already at first session, cannot go back')
           }
           break
         }
