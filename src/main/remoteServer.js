@@ -12,6 +12,7 @@ let server = null
 let wss = null
 let controllerWindow = null
 let actualPort = null
+let keepaliveInterval = null
 let currentState = {
   presentation: null,
   currentSlideIndex: 0,
@@ -171,6 +172,45 @@ export async function startRemoteServer(mainWindow, preferredPort = 3001) {
     ws.on('close', () => {
       console.log('[RemoteServer] Client disconnected')
     })
+    
+    ws.on('error', (err) => {
+      console.error('[RemoteServer] WebSocket client error:', err.message)
+    })
+  })
+  
+  // Error handling voor de server zelf
+  wss.on('error', (err) => {
+    console.error('[RemoteServer] WebSocket server error:', err.message)
+  })
+  
+  server.on('error', (err) => {
+    console.error('[RemoteServer] HTTP server error:', err.message)
+  })
+  
+  // Server-side keepalive: ping alle clients elke 30 seconden
+  // Dit detecteert dode verbindingen en houdt de server actief
+  if (keepaliveInterval) clearInterval(keepaliveInterval)
+  keepaliveInterval = setInterval(() => {
+    if (!wss) {
+      clearInterval(keepaliveInterval)
+      return
+    }
+    wss.clients.forEach((ws) => {
+      if (ws.isAlive === false) {
+        console.log('[RemoteServer] Terminating dead client connection')
+        return ws.terminate()
+      }
+      ws.isAlive = false
+      ws.ping()
+    })
+  }, 30000)
+  
+  // Mark clients as alive when they respond to ping
+  wss.on('connection', (ws) => {
+    ws.isAlive = true
+    ws.on('pong', () => {
+      ws.isAlive = true
+    })
   })
   
   return new Promise((resolve) => {
@@ -185,6 +225,10 @@ export async function startRemoteServer(mainWindow, preferredPort = 3001) {
 
 // Stop de server
 export function stopRemoteServer() {
+  if (keepaliveInterval) {
+    clearInterval(keepaliveInterval)
+    keepaliveInterval = null
+  }
   if (wss) {
     wss.clients.forEach(client => client.close())
     wss.close()

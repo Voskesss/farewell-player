@@ -120,9 +120,10 @@ function createPresentationWindow(displayId = null) {
     presentationWindow = null
   })
 
-  // Start power save blocker
+  // Start power save blocker - voorkomt display sleep EN app nap
   if (powerSaveId === null) {
-    powerSaveId = powerSaveBlocker.start('prevent-display-sleep')
+    // 'prevent-app-suspension' voorkomt ook App Nap op macOS
+    powerSaveId = powerSaveBlocker.start('prevent-app-suspension')
   }
 
   return presentationWindow
