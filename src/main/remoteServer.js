@@ -936,6 +936,20 @@ function getRemoteHTML() {
         connected = true;
         console.log('Connected to server');
         render();
+        
+        // Start heartbeat om verbinding te testen
+        if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
+        window.heartbeatInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            // Stuur een ping (server negeert dit maar het test de verbinding)
+            try {
+              ws.send(JSON.stringify({ command: 'ping' }));
+            } catch(e) {
+              console.log('Heartbeat failed, reconnecting...');
+              ws.close();
+            }
+          }
+        }, 10000); // Elke 10 seconden
       };
       
       ws.onmessage = (event) => {
@@ -953,6 +967,7 @@ function getRemoteHTML() {
       ws.onclose = () => {
         connected = false;
         console.log('Disconnected, reconnecting...');
+        if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
         render();
         setTimeout(connect, 2000);
       };
@@ -973,7 +988,15 @@ function getRemoteHTML() {
       lastCommandTime = now;
       
       if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log('Sending command:', command);
         ws.send(JSON.stringify({ command, ...data }));
+      } else {
+        console.log('WebSocket not open, state:', ws?.readyState, '- reconnecting...');
+        // Probeer te reconnecten
+        if (ws) {
+          try { ws.close(); } catch(e) {}
+        }
+        connect();
       }
     }
     
@@ -1291,6 +1314,25 @@ function getRemoteHTML() {
         }
       });
     }
+    
+    // Reconnect wanneer pagina weer zichtbaar wordt (mobiel: terugkomen van andere app)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page visible again, checking connection...');
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          console.log('Connection lost, reconnecting...');
+          connect();
+        } else {
+          // Test of verbinding nog werkt met een ping
+          try {
+            ws.send(JSON.stringify({ command: 'ping' }));
+          } catch(e) {
+            console.log('Connection dead, reconnecting...');
+            connect();
+          }
+        }
+      }
+    });
     
     // Start
     connect();
