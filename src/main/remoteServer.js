@@ -149,6 +149,14 @@ export async function startRemoteServer(mainWindow, preferredPort = 3001) {
     ws.on('message', (message) => {
       try {
         const msg = JSON.parse(message.toString())
+        
+        // Ping command - alleen voor heartbeat, niet doorsturen
+        if (msg.command === 'ping') {
+          // Stuur pong terug zodat client weet dat verbinding werkt
+          ws.send(JSON.stringify({ type: 'pong' }))
+          return
+        }
+        
         console.log('[RemoteServer] Received command:', msg.command)
         
         // Stuur commando naar controller window
@@ -938,10 +946,19 @@ function getRemoteHTML() {
         render();
         
         // Start heartbeat om verbinding te testen
+        window.lastPong = Date.now();
         if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
         window.heartbeatInterval = setInterval(() => {
           if (ws && ws.readyState === WebSocket.OPEN) {
-            // Stuur een ping (server negeert dit maar het test de verbinding)
+            // Check of we recent een pong hebben ontvangen
+            const timeSinceLastPong = Date.now() - (window.lastPong || 0);
+            if (timeSinceLastPong > 30000) {
+              // Meer dan 30 seconden geen pong - verbinding is dood
+              console.log('No pong received in 30s, reconnecting...');
+              ws.close();
+              return;
+            }
+            // Stuur een ping
             try {
               ws.send(JSON.stringify({ command: 'ping' }));
             } catch(e) {
@@ -961,6 +978,9 @@ function getRemoteHTML() {
             lang = state.language;
           }
           render();
+        } else if (msg.type === 'pong') {
+          // Heartbeat response - verbinding werkt
+          window.lastPong = Date.now();
         }
       };
       
@@ -1331,6 +1351,14 @@ function getRemoteHTML() {
             connect();
           }
         }
+      }
+    });
+    
+    // Safari iOS: pageshow event voor back/forward cache
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) {
+        console.log('Page restored from cache, reconnecting...');
+        connect();
       }
     });
     

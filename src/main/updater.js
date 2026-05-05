@@ -60,7 +60,15 @@ export function initAutoUpdater(mainWindow) {
   
   autoUpdater.on('error', (error) => {
     logger.error('Auto-updater error', { message: error.message, stack: error.stack })
-    sendToRenderer('update-error', { message: error.message })
+    
+    // Check voor readonly error (app draait vanuit DMG of readonly locatie)
+    let userMessage = error.message
+    if (error.message.includes('EROFS') || error.message.includes('read-only') || error.message.includes('readonly')) {
+      userMessage = 'Update kan niet worden geïnstalleerd omdat de app in een alleen-lezen locatie staat. Sleep de app naar de map Programma\'s en probeer opnieuw.'
+      logger.warn('App appears to be in readonly location (possibly running from DMG)')
+    }
+    
+    sendToRenderer('update-error', { message: userMessage, originalError: error.message })
   })
   
   // Check for updates after startup
