@@ -650,9 +650,14 @@ export default function Controller({
               break
             }
 
-            // Video speelt af: niet direct naar volgende — video moet eerst eindigen
-            if (currentSlide?.isVideo && isPlaying) {
-              // Doe niets, video-ended handler regelt de navigatie
+            // Video sessie (geen aparte audio): gepauzeerd = play, speelt = volgende video + autoplay
+            if (currentSlide?.isVideo && !hasSessionAudio) {
+              if (!isPlaying) {
+                setIsPlaying(true)
+              } else if (currentSlideIndex < slides.length - 1) {
+                goToSlide(currentSlideIndex + 1)
+                // Video start automatisch door isPlaying=true + video autoplay effect
+              }
               break
             }
 
@@ -842,9 +847,18 @@ export default function Controller({
             break
           }
 
-          // Video speelt: niet direct naar volgende — video-ended handler regelt het
-          if (currentSlide?.isVideo && playing) {
-            console.log('[Controller] remoteNextSlide: video playing, waiting for video end')
+          // Video sessie (geen aparte audio): gepauzeerd = play, speelt = volgende video + autoplay
+          if (currentSlide?.isVideo && !hasSessionAudio) {
+            if (!playing) {
+              console.log('[Controller] remoteNextSlide: video paused, starting play')
+              setIsPlaying(true)
+            } else {
+              const nextSlide = slideIdx + 1
+              if (nextSlide < slides.length) {
+                console.log('[Controller] remoteNextSlide: video playing, skip to next video:', nextSlide)
+                goToSlide(nextSlide)
+              }
+            }
             break
           }
 
@@ -1213,8 +1227,13 @@ export default function Controller({
             }
             break
           }
-          // Video speelt: niet direct naar volgende — video-ended handler regelt het
-          if (currentSlide?.isVideo && isPlaying) {
+          // Video sessie (geen aparte audio): gepauzeerd = play, speelt = volgende video + autoplay
+          if (currentSlide?.isVideo && !hasSessionAudio) {
+            if (!isPlaying) {
+              setIsPlaying(true)
+            } else if (currentSlideIndex < slides.length - 1) {
+              goToSlide(currentSlideIndex + 1)
+            }
             break
           }
           const loopPlaying = sess?.loop || sess?.loopMode
