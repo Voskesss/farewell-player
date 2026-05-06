@@ -41,6 +41,10 @@ export async function loadFarewellFile(filePath) {
     }
   }
   
+  // Verzamel slides die niet ingeladen konden worden, zodat we de gebruiker kunnen waarschuwen
+  // zonder de hele presentatie te laten falen op één corrupte foto
+  const failedSlides = []
+
   if (slidesFolder) {
     const slideFiles = []
     slidesFolder.forEach((relativePath, file) => {
@@ -53,48 +57,56 @@ export async function loadFarewellFile(filePath) {
     slideFiles.sort((a, b) => a.path.localeCompare(b.path))
     
     for (const { path, file } of slideFiles) {
-      const blob = await file.async('blob')
-      const url = URL.createObjectURL(blob)
-      const isVideo = /\.(mp4|webm|mov)$/i.test(path)
-      
-      // Haal video trim settings uit manifest
-      const info = slideInfoMap[path] || {}
-      
-      // Bepaal video audio: gebruik videoAudioEnabled als beschikbaar, anders videoMuted
-      // videoAudioEnabled = true betekent geluid AAN (nieuw format)
-      // videoMuted = false betekent geluid AAN (oud format)
-      let videoMuted = true  // default: muted
-      if (info.videoAudioEnabled !== undefined) {
-        // Nieuw format: videoAudioEnabled = true -> muted = false
-        videoMuted = !info.videoAudioEnabled
-      } else if (info.videoMuted !== undefined) {
-        // Oud format: gebruik direct
-        videoMuted = info.videoMuted
-      }
-      
-      // isVideo: manifest mag expliciet zetten; anders extensie (FAREWELL_PLAYER_MANIFEST.md §4)
-      const isVideoFromManifest = typeof info.isVideo === 'boolean' ? info.isVideo : isVideo
+      try {
+        const blob = await file.async('blob')
+        const url = URL.createObjectURL(blob)
+        const isVideo = /\.(mp4|webm|mov)$/i.test(path)
+        
+        // Haal video trim settings uit manifest
+        const info = slideInfoMap[path] || {}
+        
+        // Bepaal video audio: gebruik videoAudioEnabled als beschikbaar, anders videoMuted
+        // videoAudioEnabled = true betekent geluid AAN (nieuw format)
+        // videoMuted = false betekent geluid AAN (oud format)
+        let videoMuted = true  // default: muted
+        if (info.videoAudioEnabled !== undefined) {
+          // Nieuw format: videoAudioEnabled = true -> muted = false
+          videoMuted = !info.videoAudioEnabled
+        } else if (info.videoMuted !== undefined) {
+          // Oud format: gebruik direct
+          videoMuted = info.videoMuted
+        }
+        
+        // isVideo: manifest mag expliciet zetten; anders extensie (FAREWELL_PLAYER_MANIFEST.md §4)
+        const isVideoFromManifest = typeof info.isVideo === 'boolean' ? info.isVideo : isVideo
 
-      slides.push({
-        path,
-        url,
-        isVideo: isVideoFromManifest,
-        type: isVideoFromManifest ? 'video' : 'image',
-        pauseHere: info.pauseHere,
-        duration: typeof info.duration === 'number' ? info.duration : undefined,
-        // Video trim settings
-        videoStart: info.videoStart || 0,
-        videoEnd: info.videoEnd || null,
-        videoDuration: info.videoDuration ?? null,
-        videoMuted: videoMuted,
-        videoVolume: info.videoVolume ?? 100,
-        musicDucking: info.musicDucking || false
-      })
+        slides.push({
+          path,
+          url,
+          isVideo: isVideoFromManifest,
+          type: isVideoFromManifest ? 'video' : 'image',
+          pauseHere: info.pauseHere,
+          duration: typeof info.duration === 'number' ? info.duration : undefined,
+          // Video trim settings
+          videoStart: info.videoStart || 0,
+          videoEnd: info.videoEnd || null,
+          videoDuration: info.videoDuration ?? null,
+          videoMuted: videoMuted,
+          videoVolume: info.videoVolume ?? 100,
+          musicDucking: info.musicDucking || false
+        })
+      } catch (err) {
+        // Eén corrupte foto/video mag de hele presentatie niet laten falen.
+        // We loggen het en slaan de slide over.
+        console.error(`[farewellLoader] Kon slide niet laden: ${path}`, err)
+        failedSlides.push(path)
+      }
     }
   }
   
   // Laad audio als blob URLs en koppel aan sessies
   const audioTracks = []
+  const failedAudio = []
   const audioFolder = zip.folder('audio')
   
   if (audioFolder) {
@@ -109,15 +121,20 @@ export async function loadFarewellFile(filePath) {
     audioFiles.sort((a, b) => a.path.localeCompare(b.path))
     
     for (const { path, file } of audioFiles) {
-      const blob = await file.async('blob')
-      const url = URL.createObjectURL(blob)
-      const fullPath = `audio/${path}`
-      
-      audioTracks.push({
-        path: fullPath,
-        url,
-        name: path.replace(/^\d+_/, '').replace(/\.(mp3|wav|m4a)$/i, '')
-      })
+      try {
+        const blob = await file.async('blob')
+        const url = URL.createObjectURL(blob)
+        const fullPath = `audio/${path}`
+        
+        audioTracks.push({
+          path: fullPath,
+          url,
+          name: path.replace(/^\d+_/, '').replace(/\.(mp3|wav|m4a)$/i, '')
+        })
+      } catch (err) {
+        console.error(`[farewellLoader] Kon audio niet laden: ${path}`, err)
+        failedAudio.push(path)
+      }
     }
   }
   
@@ -178,8 +195,12 @@ export async function loadFarewellFile(filePath) {
   let thumbnailUrl = null
   const thumbnailFile = zip.file('thumbnail.jpg')
   if (thumbnailFile) {
-    const blob = await thumbnailFile.async('blob')
-    thumbnailUrl = URL.createObjectURL(blob)
+    try {
+      const blob = await thumbnailFile.async('blob')
+      thumbnailUrl = URL.createObjectURL(blob)
+    } catch (err) {
+      console.warn('[farewellLoader] Kon thumbnail niet laden', err)
+    }
   }
   
   const manifestVersionStr = manifest.version != null ? String(manifest.version) : '1.0'
@@ -188,9 +209,25 @@ export async function loadFarewellFile(filePath) {
       ? null
       : `Dit .farewell-bestand meldt manifest-versie "${manifestVersionStr}". Deze player is getest voor 1.x. Controleer of alles correct afspeelt.`
 
+  // Bouw waarschuwing op als er items zijn overgeslagen door fouten
+  let loadWarnings = null
+  if (failedSlides.length > 0 || failedAudio.length > 0) {
+    const parts = []
+    if (failedSlides.length > 0) {
+      parts.push(`${failedSlides.length} slide(s) overgeslagen door een fout: ${failedSlides.slice(0, 5).join(', ')}${failedSlides.length > 5 ? '…' : ''}`)
+    }
+    if (failedAudio.length > 0) {
+      parts.push(`${failedAudio.length} audiotrack(s) overgeslagen door een fout: ${failedAudio.slice(0, 5).join(', ')}${failedAudio.length > 5 ? '…' : ''}`)
+    }
+    loadWarnings = parts.join('\n')
+  }
+
   return {
     manifest,
     manifestCompatibilityWarning,
+    loadWarnings,
+    failedSlides,
+    failedAudio,
     slides,
     audioTracks,
     thumbnailUrl,

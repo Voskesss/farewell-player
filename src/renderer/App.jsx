@@ -1,17 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Controller from './components/Controller'
 import Presentation from './components/Presentation'
 import DropZone from './components/DropZone'
 import ErrorBoundary from './components/ErrorBoundary'
 import UpdateNotification from './components/UpdateNotification'
 import { I18nProvider } from './i18n'
-import { loadFarewellFile } from './utils/farewellLoader'
+import { loadFarewellFile, cleanupPresentation } from './utils/farewellLoader'
 
 function AppContent() {
   const [presentation, setPresentation] = useState(null)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPresentationMode, setIsPresentationMode] = useState(false)
+  // Houdt huidige presentatie bij om blob-URL's vrij te kunnen geven bij wisselen/sluiten
+  const presentationRef = useRef(null)
 
   // Check of we in presentatie modus zijn (via URL hash)
   useEffect(() => {
@@ -120,11 +122,43 @@ function AppContent() {
   // Bestand laden
   const handleFileLoad = async (filePath) => {
     try {
+      // Waarschuw bij grote presentaties: meer dan ~500 MB kan op zwakkere
+      // machines geheugen-/laadproblemen geven. Vraag bevestiging aan operator.
+      if (window.electronAPI?.getFileSize) {
+        const size = await window.electronAPI.getFileSize(filePath)
+        if (typeof size === 'number') {
+          const sizeMB = size / (1024 * 1024)
+          if (sizeMB > 500) {
+            const ok = confirm(
+              `Deze presentatie is ${sizeMB.toFixed(0)} MB groot.\n\n` +
+              'Grote presentaties kunnen veel geheugen gebruiken en het laden duurt langer. ' +
+              'Op een zwakkere computer kan dit problemen geven.\n\n' +
+              'Wil je doorgaan met laden?'
+            )
+            if (!ok) return
+          } else if (sizeMB > 250) {
+            console.warn(`[App] Grote presentatie: ${sizeMB.toFixed(0)} MB`)
+          }
+        }
+      }
+
       const data = await loadFarewellFile(filePath)
       if (data.manifestCompatibilityWarning) {
         console.warn('[App]', data.manifestCompatibilityWarning)
         alert(data.manifestCompatibilityWarning)
       }
+      if (data.loadWarnings) {
+        console.warn('[App] Laad-waarschuwingen:', data.loadWarnings)
+        alert('Let op — niet alle media kon worden geladen:\n\n' + data.loadWarnings + '\n\nDe presentatie kan wel worden afgespeeld, maar deze items worden overgeslagen.')
+      }
+
+      // Geef oude presentatie blob-URL's vrij vóór we de nieuwe zetten
+      if (presentationRef.current) {
+        console.log('[App] Cleaning up previous presentation blob URLs')
+        cleanupPresentation(presentationRef.current)
+      }
+      presentationRef.current = data
+
       setPresentation(data)
       setCurrentSlideIndex(0)
       
@@ -137,6 +171,28 @@ function AppContent() {
       alert('Kon presentatie niet laden: ' + error.message)
     }
   }
+
+  // Sluit presentatie en geef geheugen vrij
+  const handleClosePresentation = () => {
+    if (presentationRef.current) {
+      console.log('[App] Cleaning up presentation blob URLs on close')
+      cleanupPresentation(presentationRef.current)
+      presentationRef.current = null
+    }
+    setPresentation(null)
+    setCurrentSlideIndex(0)
+    setIsPlaying(false)
+  }
+
+  // Cleanup bij unmount (app sluit)
+  useEffect(() => {
+    return () => {
+      if (presentationRef.current) {
+        cleanupPresentation(presentationRef.current)
+        presentationRef.current = null
+      }
+    }
+  }, [])
 
   // Handler voor video ended in presentatie modus - stuur naar controller
   const handleVideoEnded = () => {
@@ -170,7 +226,7 @@ function AppContent() {
       setCurrentSlideIndex={setCurrentSlideIndex}
       isPlaying={isPlaying}
       setIsPlaying={setIsPlaying}
-      onClose={() => setPresentation(null)}
+      onClose={handleClosePresentation}
     />
   )
 }

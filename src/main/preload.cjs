@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   openAudioDialog: () => ipcRenderer.invoke('open-audio-dialog'),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  getFileSize: (filePath) => ipcRenderer.invoke('get-file-size', filePath),
   
   // Presentatie venster
   openPresentationWindow: (displayId) => ipcRenderer.invoke('open-presentation-window', displayId),

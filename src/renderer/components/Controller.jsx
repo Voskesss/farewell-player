@@ -1077,41 +1077,48 @@ export default function Controller({
     }
   }, [currentSlideIndex, sessionSlideRanges, getSessionIndexForSlide, goToSlide])
   
-  // Sync state naar remote control
+  // Sync ZWARE state naar remote control (presentatie + thumbnails + sessions)
+  // Wordt alleen uitgevoerd bij wijzigen van presentatie of thumbnails (zeldzaam)
   useEffect(() => {
-    if (window.electronAPI?.updateRemoteState) {
-      // Maak een versimpelde presentatie met thumbnails ipv blob urls
-      const remotePresentation = presentation ? {
-        name: presentation.name,
-        slides: slides.map((slide, idx) => ({
-          isVideo: slide.isVideo,
-          pauseHere: slide.pauseHere,
-          thumbnail: slideThumbnails[idx]?.base64 || null
-        })),
-        sessions: presentation.sessions
-      } : null
-      
-      const musicInfo = getCurrentMusicInfo()
-      
-      // Tijdinfo voor huidige sessie
-      const currentSessionIdx = getSessionIndexForSlide(currentSlideIndex)
-      const timeInfo = {
-        elapsed: sessionElapsedTime[currentSessionIdx] || 0,
-        total: getSessionTotalDuration(currentSessionIdx) || null
-      }
-      
-      window.electronAPI.updateRemoteState({
-        presentation: remotePresentation,
-        currentSlideIndex,
-        isPlaying,
-        sessionSlideRanges,
-        musicInfo,
-        language,
-        timeInfo,
-        presentationWindowOpen
-      })
+    if (!window.electronAPI?.updateRemoteState) return
+
+    const remotePresentation = presentation ? {
+      name: presentation.name,
+      slides: slides.map((slide, idx) => ({
+        isVideo: slide.isVideo,
+        pauseHere: slide.pauseHere,
+        thumbnail: slideThumbnails[idx]?.base64 || null
+      })),
+      sessions: presentation.sessions
+    } : null
+
+    window.electronAPI.updateRemoteState({
+      presentation: remotePresentation,
+      sessionSlideRanges,
+      language
+    })
+  }, [presentation, slides, slideThumbnails, sessionSlideRanges, language])
+
+  // Sync LICHTE state naar remote control (positie, play, muziek, tijd)
+  // Mag elke seconde — geen thumbnails inbegrepen
+  useEffect(() => {
+    if (!window.electronAPI?.updateRemoteState) return
+
+    const musicInfo = getCurrentMusicInfo()
+    const currentSessionIdx = getSessionIndexForSlide(currentSlideIndex)
+    const timeInfo = {
+      elapsed: sessionElapsedTime[currentSessionIdx] || 0,
+      total: getSessionTotalDuration(currentSessionIdx) || null
     }
-  }, [presentation, slides, slideThumbnails, currentSlideIndex, isPlaying, sessionSlideRanges, getCurrentMusicInfo, language, sessionElapsedTime, getSessionTotalDuration, getSessionIndexForSlide, presentationWindowOpen])
+
+    window.electronAPI.updateRemoteState({
+      currentSlideIndex,
+      isPlaying,
+      musicInfo,
+      timeInfo,
+      presentationWindowOpen
+    })
+  }, [currentSlideIndex, isPlaying, getCurrentMusicInfo, sessionElapsedTime, getSessionTotalDuration, getSessionIndexForSlide, presentationWindowOpen])
 
   // Luister naar remote control commando's
   useEffect(() => {

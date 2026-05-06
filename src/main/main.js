@@ -174,6 +174,17 @@ ipcMain.handle('read-file', async (event, filePath) => {
   }
 })
 
+// Haal bestandsgrootte op (in bytes) — gebruikt voor waarschuwing bij grote presentaties
+ipcMain.handle('get-file-size', async (event, filePath) => {
+  try {
+    const stats = fs.statSync(filePath)
+    return stats.size
+  } catch (error) {
+    console.error('Error getting file size:', error)
+    return null
+  }
+})
+
 // Open presentatie venster
 ipcMain.handle('open-presentation-window', async (event, displayId) => {
   if (presentationWindow) {
