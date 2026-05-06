@@ -1075,11 +1075,13 @@ export default function Controller({
   const togglePlay = useCallback(() => {
     const currentRange = sessionSlideRanges[currentSessionIndex]
     const currentSession = currentRange?.session
+    const currentSlide = slides[currentSlideIndex]
     const isLoopSession = currentSession?.loop || currentSession?.loopMode
-    const isSpeakerSession =
-      currentSession?.speakerMode || !(
-        currentSession?.audio?.url || currentSession?.audioTracks?.length > 0
-      )
+    const hasSessionAudio = currentSession?.audio?.url || currentSession?.audioTracks?.length > 0
+    // Spreker = geen audio EN geen video (video moet uitspelen, niet skippen)
+    const isSpeakerSession = !currentSlide?.isVideo && (
+      currentSession?.speakerMode || !hasSessionAudio
+    )
     const isLastSlideInSession = currentSlideIndex === currentRange?.end
     
     // Spreker sessie: altijd volgende slide (of volgende tijdblok), ongeacht play state
@@ -1108,9 +1110,9 @@ export default function Controller({
       return
     }
     
-    // Normale sessie: toggle play/pause
+    // Normale sessie (inclusief video): toggle play/pause
     setIsPlaying(prev => !prev)
-  }, [sessionSlideRanges, currentSessionIndex, currentSlideIndex, isPlaying, goToSlide])
+  }, [sessionSlideRanges, currentSessionIndex, currentSlideIndex, slides, isPlaying, goToSlide])
 
   // Helper: ga naar volgende sessie (skip lege sessies)
   const goToNextSession = useCallback(() => {
