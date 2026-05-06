@@ -1107,10 +1107,11 @@ export default function Controller({
         sessionSlideRanges,
         musicInfo,
         language,
-        timeInfo
+        timeInfo,
+        presentationWindowOpen
       })
     }
-  }, [presentation, slides, slideThumbnails, currentSlideIndex, isPlaying, sessionSlideRanges, getCurrentMusicInfo, language, sessionElapsedTime, getSessionTotalDuration, getSessionIndexForSlide])
+  }, [presentation, slides, slideThumbnails, currentSlideIndex, isPlaying, sessionSlideRanges, getCurrentMusicInfo, language, sessionElapsedTime, getSessionTotalDuration, getSessionIndexForSlide, presentationWindowOpen])
 
   // Luister naar remote control commando's
   useEffect(() => {
@@ -1162,6 +1163,9 @@ export default function Controller({
           }
           break
         }
+        case 'resetToStart':
+          resetToStart()
+          break
       }
     }
 
@@ -1169,7 +1173,7 @@ export default function Controller({
     return () => {
       window.electronAPI?.removeRemoteCommandListener()
     }
-  }, [currentSlideIndex, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide, togglePlay, goToNextSession, goToPrevSession])
+  }, [currentSlideIndex, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide, togglePlay, goToNextSession, goToPrevSession, resetToStart])
 
   // Bediening fullscreen zodra de controller zichtbaar is.
   // Geen cleanup naar windowed hier: React 18 Strict Mode zou dan in dev kort false→true flikkeren.

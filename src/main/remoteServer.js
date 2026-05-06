@@ -470,7 +470,7 @@ function getRemoteHTML() {
     /* Sessies */
     /* Actief tijdblok sectie */
     .active-session {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     
     .session {
@@ -534,7 +534,7 @@ function getRemoteHTML() {
     .section-divider {
       display: flex;
       align-items: center;
-      margin: 6px 0;
+      margin: 4px 0;
       color: #64748b;
       font-size: 10px;
       text-transform: uppercase;
@@ -558,8 +558,8 @@ function getRemoteHTML() {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      margin-bottom: 10px;
-      max-height: 22vh;
+      margin-bottom: 6px;
+      max-height: 26vh;
       overflow-y: auto;
     }
     
@@ -658,7 +658,7 @@ function getRemoteHTML() {
       justify-content: center;
       align-items: center;
       gap: 16px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     
     .btn {
@@ -715,7 +715,7 @@ function getRemoteHTML() {
       display: flex;
       justify-content: center;
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
     
     .btn-session {
@@ -846,6 +846,58 @@ function getRemoteHTML() {
       height: 16px;
     }
     
+    /* Projectie status */
+    .projection-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    
+    .projection-status.active {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    
+    .projection-status.inactive {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    
+    .projection-status svg {
+      width: 14px;
+      height: 14px;
+    }
+    
+    /* Reset knop */
+    .btn-reset {
+      width: 38px;
+      height: 38px;
+      background: #dc2626;
+      color: white;
+      font-size: 11px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .btn-reset:active {
+      background: #b91c1c;
+    }
+    
+    .btn-reset svg {
+      width: 18px;
+      height: 18px;
+    }
+    
   </style>
 </head>
 <body>
@@ -888,7 +940,10 @@ function getRemoteHTML() {
         music: 'Muziek',
         noMusic: 'Geen muziek',
         musicPlaying: 'Speelt',
-        musicPaused: 'Gestopt'
+        musicPaused: 'Gestopt',
+        projectionActive: 'Extern scherm actief',
+        projectionInactive: 'Extern scherm niet gestart',
+        resetToStart: 'Reset naar begin'
       },
       en: {
         title: 'Farewell Remote',
@@ -915,7 +970,10 @@ function getRemoteHTML() {
         music: 'Music',
         noMusic: 'No music',
         musicPlaying: 'Playing',
-        musicPaused: 'Paused'
+        musicPaused: 'Paused',
+        projectionActive: 'External screen active',
+        projectionInactive: 'External screen not started',
+        resetToStart: 'Reset to start'
       },
       de: {
         title: 'Farewell Remote',
@@ -942,7 +1000,10 @@ function getRemoteHTML() {
         music: 'Musik',
         noMusic: 'Keine Musik',
         musicPlaying: 'Spielt',
-        musicPaused: 'Angehalten'
+        musicPaused: 'Angehalten',
+        projectionActive: 'Externer Bildschirm aktiv',
+        projectionInactive: 'Externer Bildschirm nicht gestartet',
+        resetToStart: 'Zurück zum Anfang'
       }
     };
     
@@ -1248,7 +1309,23 @@ function getRemoteHTML() {
         
         '<div class="nav-row">' +
           '<button class="btn btn-session" data-action="prevSession">◀◀ ' + t.prevSession + '</button>' +
+          '<button class="btn btn-reset" data-action="resetToStart" title="' + t.resetToStart + '">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+              '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>' +
+              '<path d="M3 3v5h5"/>' +
+            '</svg>' +
+          '</button>' +
           '<button class="btn btn-session" data-action="nextSession">' + t.nextSession + ' ▶▶</button>' +
+        '</div>' +
+        
+        // Projectie status
+        '<div class="projection-status ' + (state.presentationWindowOpen ? 'active' : 'inactive') + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>' +
+            '<line x1="8" y1="21" x2="16" y2="21"/>' +
+            '<line x1="12" y1="17" x2="12" y2="21"/>' +
+          '</svg>' +
+          '<span>' + (state.presentationWindowOpen ? t.projectionActive : t.projectionInactive) + '</span>' +
         '</div>' +
         
         '<div class="footer">' +
