@@ -293,6 +293,10 @@ export default function Controller({
         // Pauzeer ook altijd bij speaker mode (geen audio)
         const hasAudio = newSession?.audio?.url || newSession?.audioTracks?.length > 0
         const isSpeakerMode = newSession?.speakerMode || !hasAudio
+        const oldHasAudio = oldSession?.audio?.url || oldSession?.audioTracks?.length > 0
+        const wasSpeakerSession = oldSession?.speakerMode || !oldHasAudio
+        const newIsSpeaker =
+          newSession?.speakerMode || !hasAudio
         
         console.log('[Controller] Session switch:', {
           from: oldSessionIndex,
@@ -301,18 +305,28 @@ export default function Controller({
           isPlaying,
           firstSlidePauseHere: pauseHere,
           speakerMode: isSpeakerMode,
+          wasSpeakerSession,
           hasAudio
         })
         
         // Logica:
         // 1. Als we vanuit een LOPENDE loop komen → ALTIJD pauzeren
-        // 2. Anders: respecteer pauseHere
+        // 2. Van spreker → muziek/video-blok: automatisch starten (tenzij eerste slide expliciet pauseHere)
+        // 3. Anders: respecteer pauseHere
         //    - pauseHere=true of speakerMode → pauzeer
         //    - pauseHere=false → auto-start
         //    - pauseHere=undefined → pauzeer (default)
         if (wasPlayingLoopSession) {
           console.log('[Controller] Pausing - came from playing loop session')
           setIsPlaying(false)
+        } else if (wasSpeakerSession && !isSpeakerMode) {
+          if (pauseHere === true) {
+            console.log('[Controller] After speaker → play block, but first slide has pauseHere — staying paused')
+            setIsPlaying(false)
+          } else {
+            console.log('[Controller] After speaker → play block — auto-starting')
+            setIsPlaying(true)
+          }
         } else if (pauseHere === true || isSpeakerMode) {
           console.log('[Controller] Pausing - pauseHere=true or speaker mode')
           setIsPlaying(false)
@@ -619,15 +633,38 @@ export default function Controller({
           e.preventDefault()
           {
             // Check of huidige sessie een speaker sessie is (geen audio = handmatig doorklikken)
+            // Maar VIDEO's tellen niet als speaker — die moeten uitspelen
             const currentSessionIdx = getSessionIndexForSlide(currentSlideIndex)
             const currentRange = sessionSlideRanges[currentSessionIdx]
             const currentSession = currentRange?.session
-            const isSpeakerMode = currentSession?.speakerMode || !currentSession?.audio?.url
+            const currentSlide = slides[currentSlideIndex]
+            const hasSessionAudio = currentSession?.audio?.url || currentSession?.audioTracks?.length > 0
+            const isSpeakerMode = !currentSlide?.isVideo && (
+              currentSession?.speakerMode || !hasSessionAudio
+            )
 
             // Speaker sessie: altijd direct naar volgende slide
             if (isSpeakerMode && currentSlideIndex < slides.length - 1) {
               setIsPlaying(true)
               goToSlide(currentSlideIndex + 1)
+              break
+            }
+
+            // Video speelt af: niet direct naar volgende — video moet eerst eindigen
+            if (currentSlide?.isVideo && isPlaying) {
+              // Doe niets, video-ended handler regelt de navigatie
+              break
+            }
+
+            // Lopende loop: "volgende" (clicker / pijl) = volgend tijdblok — niet binnen de loop verder klikken
+            const sessionHasLoop = currentSession?.loop || currentSession?.loopMode
+            if (sessionHasLoop && isPlaying) {
+              if (currentSessionIdx < sessionSlideRanges.length - 1) {
+                const nextRange = sessionSlideRanges[currentSessionIdx + 1]
+                goToSlide(nextRange.start)
+              } else {
+                setIsPlaying(false)
+              }
               break
             }
 
@@ -701,7 +738,7 @@ export default function Controller({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentSlideIndex, slides, sessionSlideRanges, getSessionIndexForSlide, isPlaying, goToSlide])
+  }, [currentSlideIndex, slides, sessionSlideRanges, getSessionIndexForSlide, isPlaying, goToSlide, setIsPlaying])
 
   // Check elke seconde of sessie moet stoppen en naar volgende gaan
   useEffect(() => {
@@ -784,11 +821,15 @@ export default function Controller({
         case 'remoteNextSlide': {
           console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing)
 
-          // Check of huidige sessie een speaker sessie is (geen audio = handmatig doorklikken)
           const currentSessionIdx = getSessionIndexForSlide(slideIdx)
           const currentRange = sessionSlideRanges[currentSessionIdx]
           const currentSession = currentRange?.session
-          const isSpeakerMode = currentSession?.speakerMode || !currentSession?.audio?.url
+          const currentSlide = slides[slideIdx]
+          const hasSessionAudio = currentSession?.audio?.url || currentSession?.audioTracks?.length > 0
+          // Spreker = geen audio EN geen video (video moet uitspelen)
+          const isSpeakerMode = !currentSlide?.isVideo && (
+            currentSession?.speakerMode || !hasSessionAudio
+          )
 
           // Speaker sessie: altijd direct naar volgende slide (play doet niks bij speaker)
           if (isSpeakerMode) {
@@ -797,6 +838,25 @@ export default function Controller({
               console.log('[Controller] remoteNextSlide: speaker mode, going to next slide:', nextSlide)
               setIsPlaying(true)
               goToSlide(nextSlide)
+            }
+            break
+          }
+
+          // Video speelt: niet direct naar volgende — video-ended handler regelt het
+          if (currentSlide?.isVideo && playing) {
+            console.log('[Controller] remoteNextSlide: video playing, waiting for video end')
+            break
+          }
+
+          // Lopende loop: volgende = volgend tijdblok (zelfde als Space tijdens loop)
+          const sessionHasLoop = currentSession?.loop || currentSession?.loopMode
+          if (sessionHasLoop && playing) {
+            if (currentSessionIdx < sessionSlideRanges.length - 1) {
+              const nextRange = sessionSlideRanges[currentSessionIdx + 1]
+              console.log('[Controller] remoteNextSlide: loop playing → next time block', nextRange.start)
+              goToSlide(nextRange.start)
+            } else {
+              setIsPlaying(false)
             }
             break
           }
@@ -1016,7 +1076,10 @@ export default function Controller({
     const currentRange = sessionSlideRanges[currentSessionIndex]
     const currentSession = currentRange?.session
     const isLoopSession = currentSession?.loop || currentSession?.loopMode
-    const isSpeakerSession = currentSession?.speakerMode
+    const isSpeakerSession =
+      currentSession?.speakerMode || !(
+        currentSession?.audio?.url || currentSession?.audioTracks?.length > 0
+      )
     const isLastSlideInSession = currentSlideIndex === currentRange?.end
     
     // Spreker sessie: altijd volgende slide (of volgende tijdblok), ongeacht play state
@@ -1131,11 +1194,46 @@ export default function Controller({
         case 'togglePlay':
           togglePlay()
           break
-        case 'nextSlide':
+        case 'nextSlide': {
+          const si = getSessionIndexForSlide(currentSlideIndex)
+          const range = sessionSlideRanges[si]
+          const sess = range?.session
+          const currentSlide = slides[currentSlideIndex]
+          const hasSessionAudio = sess?.audio?.url || sess?.audioTracks?.length > 0
+          // Spreker = geen audio EN geen video (video moet uitspelen)
+          const isSpeakerBlock = !currentSlide?.isVideo && (
+            sess?.speakerMode || !hasSessionAudio
+          )
+          if (isSpeakerBlock) {
+            if (currentSlideIndex < slides.length - 1) {
+              setIsPlaying(true)
+              goToSlide(currentSlideIndex + 1)
+            }
+            break
+          }
+          // Video speelt: niet direct naar volgende — video-ended handler regelt het
+          if (currentSlide?.isVideo && isPlaying) {
+            break
+          }
+          const loopPlaying = sess?.loop || sess?.loopMode
+          if (loopPlaying && isPlaying) {
+            if (si < sessionSlideRanges.length - 1) {
+              goToSlide(sessionSlideRanges[si + 1].start)
+            } else {
+              setIsPlaying(false)
+            }
+            break
+          }
           if (currentSlideIndex < slides.length - 1) {
-            goToSlide(currentSlideIndex + 1)
+            const nextIdx = currentSlideIndex + 1
+            const targetSlide = slides[nextIdx]
+            if (isPlaying && targetSlide?.pauseHere) {
+              setIsPlaying(false)
+            }
+            goToSlide(nextIdx)
           }
           break
+        }
         case 'prevSlide':
           if (currentSlideIndex > 0) {
             goToSlide(currentSlideIndex - 1)
@@ -1180,7 +1278,7 @@ export default function Controller({
     return () => {
       window.electronAPI?.removeRemoteCommandListener()
     }
-  }, [currentSlideIndex, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide, togglePlay, goToNextSession, goToPrevSession, resetToStart])
+  }, [currentSlideIndex, slides, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide, togglePlay, goToNextSession, goToPrevSession, resetToStart, isPlaying, setIsPlaying])
 
   // Bediening fullscreen zodra de controller zichtbaar is.
   // Geen cleanup naar windowed hier: React 18 Strict Mode zou dan in dev kort false→true flikkeren.
