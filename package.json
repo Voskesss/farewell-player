@@ -1,6 +1,6 @@
 {
   "name": "farewell-player",
-  "version": "1.5.23",
+  "version": "1.5.24",
   "description": "Offline presentatie speler voor uitvaartpresentaties",
   "type": "module",
   "main": "src/main/main.js",

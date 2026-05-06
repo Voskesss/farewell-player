@@ -807,139 +807,148 @@ export default function Controller({
     }
   }, [isPlaying, currentSlideIndex, slides.length, goToSlide, setIsPlaying, sessionSlideRanges, currentSessionIndex])
 
-  // Luister naar commando's van presentatie venster (bijv. video ended)
-  useEffect(() => {
-    if (!window.electronAPI) return
+  // Ref voor controller command handler (voorkomt race-condition bij re-renders)
+  const controllerCommandHandlerRef = useRef(null)
+  
+  // Update de handler ref bij elke render met actuele closures
+  controllerCommandHandlerRef.current = ({ command, data }) => {
+    // Gebruik refs voor actuele waarden (voorkomt stale closure)
+    const slideIdx = currentSlideIndexRef.current
+    const playing = isPlayingRef.current
+    console.log('[Controller] Remote command:', command, '| slide:', slideIdx, '| playing:', playing)
 
-    const handler = ({ command, data }) => {
-      // Gebruik refs voor actuele waarden (voorkomt stale closure)
-      const slideIdx = currentSlideIndexRef.current
-      const playing = isPlayingRef.current
-      console.log('[Controller] Remote command:', command, '| slide:', slideIdx, '| playing:', playing)
+    switch (command) {
+      case 'videoEnded':
+        console.log('[Controller] Video ended, advancing to next slide')
+        handleVideoEnded()
+        break
 
-      switch (command) {
-        case 'videoEnded':
-          console.log('[Controller] Video ended, advancing to next slide')
-          handleVideoEnded()
+      case 'remoteNextSlide': {
+        console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing)
+
+        const currentSessionIdx = getSessionIndexForSlide(slideIdx)
+        const currentRange = sessionSlideRanges[currentSessionIdx]
+        const currentSession = currentRange?.session
+        const currentSlide = slides[slideIdx]
+        const hasSessionAudio = currentSession?.audio?.url || currentSession?.audioTracks?.length > 0
+        // Spreker = geen audio EN geen video (video moet uitspelen)
+        const isSpeakerMode = !currentSlide?.isVideo && (
+          currentSession?.speakerMode || !hasSessionAudio
+        )
+
+        // Speaker sessie: altijd direct naar volgende slide (play doet niks bij speaker)
+        if (isSpeakerMode) {
+          const nextSlide = slideIdx + 1
+          if (nextSlide < slides.length) {
+            console.log('[Controller] remoteNextSlide: speaker mode, going to next slide:', nextSlide)
+            setIsPlaying(true)
+            goToSlide(nextSlide)
+          }
           break
+        }
 
-        case 'remoteNextSlide': {
-          console.log('[Controller] remoteNextSlide | slideIdx:', slideIdx, '| playing:', playing)
-
-          const currentSessionIdx = getSessionIndexForSlide(slideIdx)
-          const currentRange = sessionSlideRanges[currentSessionIdx]
-          const currentSession = currentRange?.session
-          const currentSlide = slides[slideIdx]
-          const hasSessionAudio = currentSession?.audio?.url || currentSession?.audioTracks?.length > 0
-          // Spreker = geen audio EN geen video (video moet uitspelen)
-          const isSpeakerMode = !currentSlide?.isVideo && (
-            currentSession?.speakerMode || !hasSessionAudio
-          )
-
-          // Speaker sessie: altijd direct naar volgende slide (play doet niks bij speaker)
-          if (isSpeakerMode) {
-            const nextSlide = slideIdx + 1
-            if (nextSlide < slides.length) {
-              console.log('[Controller] remoteNextSlide: speaker mode, going to next slide:', nextSlide)
-              setIsPlaying(true)
-              goToSlide(nextSlide)
-            }
-            break
-          }
-
-          // Video sessie (geen aparte audio): gepauzeerd = play, speelt = volgende video + autoplay
-          if (currentSlide?.isVideo && !hasSessionAudio) {
-            if (!playing) {
-              console.log('[Controller] remoteNextSlide: video paused, starting play')
-              setIsPlaying(true)
-            } else {
-              const nextSlide = slideIdx + 1
-              if (nextSlide < slides.length) {
-                console.log('[Controller] remoteNextSlide: video playing, skip to next video:', nextSlide)
-                goToSlide(nextSlide)
-              }
-            }
-            break
-          }
-
-          // Lopende loop: volgende = volgend tijdblok (zelfde als Space tijdens loop)
-          const sessionHasLoop = currentSession?.loop || currentSession?.loopMode
-          if (sessionHasLoop && playing) {
-            if (currentSessionIdx < sessionSlideRanges.length - 1) {
-              const nextRange = sessionSlideRanges[currentSessionIdx + 1]
-              console.log('[Controller] remoteNextSlide: loop playing → next time block', nextRange.start)
-              goToSlide(nextRange.start)
-            } else {
-              setIsPlaying(false)
-            }
-            break
-          }
-
-          // Normale sessie: gepauzeerd = play, speelt = volgende slide
+        // Video sessie (geen aparte audio): gepauzeerd = play, speelt = volgende video + autoplay
+        if (currentSlide?.isVideo && !hasSessionAudio) {
           if (!playing) {
-            console.log('[Controller] remoteNextSlide: was paused, starting play')
+            console.log('[Controller] remoteNextSlide: video paused, starting play')
             setIsPlaying(true)
           } else {
             const nextSlide = slideIdx + 1
             if (nextSlide < slides.length) {
-              console.log('[Controller] remoteNextSlide: was playing, going to next slide:', nextSlide)
-              // Check of volgende slide pauseHere heeft
-              const targetSlide = slides[nextSlide]
-              if (targetSlide?.pauseHere) {
-                console.log('[Controller] remoteNextSlide: target has pauseHere, will pause')
-                setIsPlaying(false)
-              }
+              console.log('[Controller] remoteNextSlide: video playing, skip to next video:', nextSlide)
               goToSlide(nextSlide)
             }
           }
           break
         }
 
-        case 'remotePrevSlide': {
-          console.log('[Controller] remotePrevSlide | slideIdx:', slideIdx)
-          // Vorige slide - check pauseHere voor correctie
-          if (slideIdx > 0) {
-            const prevSlideIdx = slideIdx - 1
-            const targetSlide = slides[prevSlideIdx]
-            // Als target slide pauseHere heeft, pauzeer + reset sessie audio
-            if (targetSlide?.pauseHere) {
-              console.log('[Controller] remotePrevSlide: target has pauseHere, pausing and resetting audio')
-              setIsPlaying(false)
-              // Reset audio van de sessie waar we naartoe gaan
-              const targetSessionIdx = getSessionIndexForSlide(prevSlideIdx)
-              const audio = audioRefs.current[targetSessionIdx]
-              if (audio) {
-                audio.pause()
-                audio.currentTime = 0
-              }
-              // Reset elapsed time voor die sessie
-              setSessionElapsedTime(prev => ({
-                ...prev,
-                [targetSessionIdx]: 0
-              }))
-              // Reset audioEnded voor die sessie
-              setAudioEnded(prev => ({
-                ...prev,
-                [targetSessionIdx]: false
-              }))
-            }
-            goToSlide(prevSlideIdx)
+        // Lopende loop: volgende = volgend tijdblok (zelfde als Space tijdens loop)
+        const sessionHasLoop = currentSession?.loop || currentSession?.loopMode
+        if (sessionHasLoop && playing) {
+          if (currentSessionIdx < sessionSlideRanges.length - 1) {
+            const nextRange = sessionSlideRanges[currentSessionIdx + 1]
+            console.log('[Controller] remoteNextSlide: loop playing → next time block', nextRange.start)
+            goToSlide(nextRange.start)
+          } else {
+            setIsPlaying(false)
           }
           break
         }
 
-        case 'remotePlayPause':
-          setIsPlaying((p) => !p)
-          break
+        // Normale sessie: gepauzeerd = play, speelt = volgende slide
+        if (!playing) {
+          console.log('[Controller] remoteNextSlide: was paused, starting play')
+          setIsPlaying(true)
+        } else {
+          const nextSlide = slideIdx + 1
+          if (nextSlide < slides.length) {
+            console.log('[Controller] remoteNextSlide: was playing, going to next slide:', nextSlide)
+            // Check of volgende slide pauseHere heeft
+            const targetSlide = slides[nextSlide]
+            if (targetSlide?.pauseHere) {
+              console.log('[Controller] remoteNextSlide: target has pauseHere, will pause')
+              setIsPlaying(false)
+            }
+            goToSlide(nextSlide)
+          }
+        }
+        break
       }
+
+      case 'remotePrevSlide': {
+        console.log('[Controller] remotePrevSlide | slideIdx:', slideIdx)
+        // Vorige slide - check pauseHere voor correctie
+        if (slideIdx > 0) {
+          const prevSlideIdx = slideIdx - 1
+          const targetSlide = slides[prevSlideIdx]
+          // Als target slide pauseHere heeft, pauzeer + reset sessie audio
+          if (targetSlide?.pauseHere) {
+            console.log('[Controller] remotePrevSlide: target has pauseHere, pausing and resetting audio')
+            setIsPlaying(false)
+            // Reset audio van de sessie waar we naartoe gaan
+            const targetSessionIdx = getSessionIndexForSlide(prevSlideIdx)
+            const audio = audioRefs.current[targetSessionIdx]
+            if (audio) {
+              audio.pause()
+              audio.currentTime = 0
+            }
+            // Reset elapsed time voor die sessie
+            setSessionElapsedTime(prev => ({
+              ...prev,
+              [targetSessionIdx]: 0
+            }))
+            // Reset audioEnded voor die sessie
+            setAudioEnded(prev => ({
+              ...prev,
+              [targetSessionIdx]: false
+            }))
+          }
+          goToSlide(prevSlideIdx)
+        }
+        break
+      }
+
+      case 'remotePlayPause':
+        setIsPlaying((p) => !p)
+        break
+    }
+  }
+
+  // Luister naar commando's van presentatie venster (bijv. video ended)
+  // Registreer listener EENMALIG bij mount — dispatch naar ref voorkomt race-condition
+  useEffect(() => {
+    if (!window.electronAPI) return
+
+    const dispatch = (msg) => {
+      controllerCommandHandlerRef.current?.(msg)
     }
 
-    window.electronAPI.onControllerCommand(handler)
+    window.electronAPI.onControllerCommand(dispatch)
 
     return () => {
       window.electronAPI?.removeControllerCommandListener()
     }
-  }, [handleVideoEnded, goToSlide, setIsPlaying, sessionSlideRanges, getSessionIndexForSlide, slides])
+  }, []) // Lege dependency array: listener blijft stabiel
 
   const openPresentationWindow = async () => {
     if (window.electronAPI) {
@@ -1199,107 +1208,119 @@ export default function Controller({
     })
   }, [currentSlideIndex, isPlaying, getCurrentMusicInfo, sessionElapsedTime, getSessionTotalDuration, getSessionIndexForSlide, presentationWindowOpen])
 
+  // Ref voor remote command handler (voorkomt race-condition bij re-renders)
+  const remoteCommandHandlerRef = useRef(null)
+  
+  // Update de handler ref bij elke render met actuele closures
+  remoteCommandHandlerRef.current = (msg) => {
+    // Gebruik refs voor actuele waarden
+    const slideIdx = currentSlideIndexRef.current
+    const playing = isPlayingRef.current
+    console.log('[Controller] Remote command:', msg.command, '| slide:', slideIdx, '| playing:', playing)
+    
+    switch (msg.command) {
+      case 'togglePlay':
+        togglePlay()
+        break
+      case 'nextSlide': {
+        const si = getSessionIndexForSlide(slideIdx)
+        const range = sessionSlideRanges[si]
+        const sess = range?.session
+        const currentSlide = slides[slideIdx]
+        const hasSessionAudio = sess?.audio?.url || sess?.audioTracks?.length > 0
+        // Spreker = geen audio EN geen video (video moet uitspelen)
+        const isSpeakerBlock = !currentSlide?.isVideo && (
+          sess?.speakerMode || !hasSessionAudio
+        )
+        if (isSpeakerBlock) {
+          if (slideIdx < slides.length - 1) {
+            setIsPlaying(true)
+            goToSlide(slideIdx + 1)
+          }
+          break
+        }
+        // Video sessie (geen aparte audio): gepauzeerd = play, speelt = volgende video + autoplay
+        if (currentSlide?.isVideo && !hasSessionAudio) {
+          if (!playing) {
+            setIsPlaying(true)
+          } else if (slideIdx < slides.length - 1) {
+            goToSlide(slideIdx + 1)
+          }
+          break
+        }
+        const loopPlaying = sess?.loop || sess?.loopMode
+        if (loopPlaying && playing) {
+          if (si < sessionSlideRanges.length - 1) {
+            goToSlide(sessionSlideRanges[si + 1].start)
+          } else {
+            setIsPlaying(false)
+          }
+          break
+        }
+        if (slideIdx < slides.length - 1) {
+          const nextIdx = slideIdx + 1
+          const targetSlide = slides[nextIdx]
+          if (playing && targetSlide?.pauseHere) {
+            setIsPlaying(false)
+          }
+          goToSlide(nextIdx)
+        }
+        break
+      }
+      case 'prevSlide':
+        if (slideIdx > 0) {
+          goToSlide(slideIdx - 1)
+        }
+        break
+      case 'nextSession':
+        goToNextSession()
+        break
+      case 'prevSession':
+        goToPrevSession()
+        break
+      case 'goToSlide':
+        if (typeof msg.index === 'number') {
+          goToSlide(msg.index)
+        }
+        break
+      case 'goToSession':
+        if (typeof msg.index === 'number' && sessionSlideRanges[msg.index]) {
+          goToSlide(sessionSlideRanges[msg.index].start)
+        }
+        break
+      case 'toggleMusic': {
+        // Toggle muziek voor huidige sessie
+        const sessionIdx = getSessionIndexForSlide(slideIdx)
+        const audioElement = audioRefs.current[sessionIdx]
+        if (audioElement) {
+          if (audioElement.paused) {
+            audioElement.play().catch(() => {})
+          } else {
+            audioElement.pause()
+          }
+        }
+        break
+      }
+      case 'resetToStart':
+        resetToStart()
+        break
+    }
+  }
+
   // Luister naar remote control commando's
+  // Registreer listener EENMALIG bij mount — dispatch naar ref voorkomt race-condition
   useEffect(() => {
     if (!window.electronAPI?.onRemoteCommand) return
 
-    const handleRemoteCommand = (msg) => {
-      console.log('[Controller] Remote command:', msg.command)
-      
-      switch (msg.command) {
-        case 'togglePlay':
-          togglePlay()
-          break
-        case 'nextSlide': {
-          const si = getSessionIndexForSlide(currentSlideIndex)
-          const range = sessionSlideRanges[si]
-          const sess = range?.session
-          const currentSlide = slides[currentSlideIndex]
-          const hasSessionAudio = sess?.audio?.url || sess?.audioTracks?.length > 0
-          // Spreker = geen audio EN geen video (video moet uitspelen)
-          const isSpeakerBlock = !currentSlide?.isVideo && (
-            sess?.speakerMode || !hasSessionAudio
-          )
-          if (isSpeakerBlock) {
-            if (currentSlideIndex < slides.length - 1) {
-              setIsPlaying(true)
-              goToSlide(currentSlideIndex + 1)
-            }
-            break
-          }
-          // Video sessie (geen aparte audio): gepauzeerd = play, speelt = volgende video + autoplay
-          if (currentSlide?.isVideo && !hasSessionAudio) {
-            if (!isPlaying) {
-              setIsPlaying(true)
-            } else if (currentSlideIndex < slides.length - 1) {
-              goToSlide(currentSlideIndex + 1)
-            }
-            break
-          }
-          const loopPlaying = sess?.loop || sess?.loopMode
-          if (loopPlaying && isPlaying) {
-            if (si < sessionSlideRanges.length - 1) {
-              goToSlide(sessionSlideRanges[si + 1].start)
-            } else {
-              setIsPlaying(false)
-            }
-            break
-          }
-          if (currentSlideIndex < slides.length - 1) {
-            const nextIdx = currentSlideIndex + 1
-            const targetSlide = slides[nextIdx]
-            if (isPlaying && targetSlide?.pauseHere) {
-              setIsPlaying(false)
-            }
-            goToSlide(nextIdx)
-          }
-          break
-        }
-        case 'prevSlide':
-          if (currentSlideIndex > 0) {
-            goToSlide(currentSlideIndex - 1)
-          }
-          break
-        case 'nextSession':
-          goToNextSession()
-          break
-        case 'prevSession':
-          goToPrevSession()
-          break
-        case 'goToSlide':
-          if (typeof msg.index === 'number') {
-            goToSlide(msg.index)
-          }
-          break
-        case 'goToSession':
-          if (typeof msg.index === 'number' && sessionSlideRanges[msg.index]) {
-            goToSlide(sessionSlideRanges[msg.index].start)
-          }
-          break
-        case 'toggleMusic': {
-          // Toggle muziek voor huidige sessie
-          const sessionIdx = getSessionIndexForSlide(currentSlideIndex)
-          const audioElement = audioRefs.current[sessionIdx]
-          if (audioElement) {
-            if (audioElement.paused) {
-              audioElement.play().catch(() => {})
-            } else {
-              audioElement.pause()
-            }
-          }
-          break
-        }
-        case 'resetToStart':
-          resetToStart()
-          break
-      }
+    const dispatch = (msg) => {
+      remoteCommandHandlerRef.current?.(msg)
     }
 
-    window.electronAPI.onRemoteCommand(handleRemoteCommand)
+    window.electronAPI.onRemoteCommand(dispatch)
     return () => {
       window.electronAPI?.removeRemoteCommandListener()
     }
-  }, [currentSlideIndex, slides, slides.length, sessionSlideRanges, goToSlide, getSessionIndexForSlide, togglePlay, goToNextSession, goToPrevSession, resetToStart, isPlaying, setIsPlaying])
+  }, []) // Lege dependency array: listener blijft stabiel
 
   // Bediening fullscreen zodra de controller zichtbaar is.
   // Geen cleanup naar windowed hier: React 18 Strict Mode zou dan in dev kort false→true flikkeren.
