@@ -11,6 +11,7 @@ function AppContent() {
   const [presentation, setPresentation] = useState(null)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [videoRestartKey, setVideoRestartKey] = useState(0)
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   // Houdt huidige presentatie bij om blob-URL's vrij te kunnen geven bij wisselen/sluiten
   const presentationRef = useRef(null)
@@ -42,6 +43,10 @@ function AppContent() {
         case 'goto':
           console.log('[Presentation Window] Going to slide:', data.index)
           setCurrentSlideIndex(data.index)
+          break
+        case 'restartVideo':
+          // Zelfde dia, video opnieuw (herhalend blok met alleen één video)
+          setVideoRestartKey(n => n + 1)
           break
         case 'next':
           setCurrentSlideIndex(prev => Math.min(prev + 1, (presentation?.slides?.length || 1) - 1))
@@ -210,6 +215,7 @@ function AppContent() {
         currentSlideIndex={currentSlideIndex}
         isPlaying={isPlaying}
         onVideoEnded={handleVideoEnded}
+        videoRestartKey={videoRestartKey}
       />
     )
   }

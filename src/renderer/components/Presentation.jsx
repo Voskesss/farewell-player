@@ -16,7 +16,8 @@ export default function Presentation({
   presentation,
   currentSlideIndex,
   isPlaying,
-  onVideoEnded
+  onVideoEnded,
+  videoRestartKey = 0
 }) {
   const [displayedSlideIndex, setDisplayedSlideIndex] = useState(currentSlideIndex)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -82,6 +83,19 @@ export default function Presentation({
       })
     }
   }, [displayedSlideIndex, presentation])
+
+  // Herhalend blok met alleen één video: de dia verandert niet, dus de controller
+  // vraagt expliciet om de video opnieuw te starten.
+  useEffect(() => {
+    if (!videoRestartKey) return
+    const currentSlide = presentation?.slides[displayedSlideIndex]
+    if (videoRef.current && currentSlide?.isVideo) {
+      videoRef.current.currentTime = currentSlide.videoStart || 0
+      videoRef.current.play().catch(() => {})
+    }
+    // Alleen op het signaal reageren, niet op een dia-wissel
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoRestartKey])
 
   // Pauzeer/hervat video op basis van isPlaying
   useEffect(() => {

@@ -790,6 +790,21 @@ export default function Controller({
     // Video's loopen ALLEEN als sessie expliciet loop mode heeft
     // NIET als alleen audio nog speelt - audio volgt video, niet andersom
     if (isLastSlideInSession && sessionHasLoop) {
+      // Blok met alleen deze ene video: "terug naar het begin" is dezelfde dia, dus er
+      // verandert niets en de video zou blijven stilstaan. Start hem daarom opnieuw,
+      // hier én in het presentatievenster.
+      if (currentRange.start === currentSlideIndex) {
+        console.log('[Controller] Video ended - enige dia in loop, video opnieuw starten')
+        const v = videoRef.current
+        if (v) {
+          v.currentTime = slides[currentSlideIndex]?.videoStart || 0
+          v.play().catch(() => {})
+        }
+        if (window.electronAPI) {
+          window.electronAPI.sendToPresentation('restartVideo', { index: currentSlideIndex })
+        }
+        return
+      }
       // Loop terug naar begin van sessie
       console.log('[Controller] Video ended - looping back to session start (loop mode):', currentRange.start)
       goToSlide(currentRange.start)
@@ -805,7 +820,7 @@ export default function Controller({
       console.log('[Controller] Video ended - end of presentation')
       setIsPlaying(false)
     }
-  }, [isPlaying, currentSlideIndex, slides.length, goToSlide, setIsPlaying, sessionSlideRanges, currentSessionIndex])
+  }, [isPlaying, currentSlideIndex, slides, goToSlide, setIsPlaying, sessionSlideRanges, currentSessionIndex])
 
   // Luister naar commando's van presentatie venster (bijv. video ended)
   useEffect(() => {
