@@ -19,18 +19,13 @@ export default function Presentation({
   onVideoEnded
 }) {
   const [displayedSlideIndex, setDisplayedSlideIndex] = useState(currentSlideIndex)
-  const [isTransitioning, setIsTransitioning] = useState(false)
   const [prevSlideIndex, setPrevSlideIndex] = useState(null)
   const videoRef = useRef(null)
 
-  // Bepaal transition type: per sessie of globaal
-  const transitionType = useMemo(() => {
-    const session = getSessionForSlideIndex(presentation, currentSlideIndex)
-    return session?.transition || presentation?.settings?.transition || 'fade'
-  }, [presentation, currentSlideIndex])
-
-  const transitionDuration = presentation?.settings?.transitionDuration || 1000
-  const halfDuration = transitionType === 'none' ? 0 : transitionDuration / 2
+  // Bepaal transition type en snelheid: per sessie of globaal (zelfde als het voorbeeld in de app)
+  const session = useMemo(() => getSessionForSlideIndex(presentation, currentSlideIndex), [presentation, currentSlideIndex])
+  const transitionType = session?.transition || presentation?.settings?.transition || 'fade'
+  const transitionDuration = Number(session?.transitionDuration) || Number(presentation?.settings?.transitionDuration) || 1000
 
   const getTransitionClass = () => {
     switch (transitionType) {
@@ -47,27 +42,20 @@ export default function Presentation({
     }
   }
 
-  // Sync met controller: pas transition toe op basis van type
+  // Sync met controller: de nieuwe dia verschijnt meteen met zijn animatie;
+  // bij wissen blijft de vorige dia eronder staan tot de animatie klaar is.
   useEffect(() => {
-    if (currentSlideIndex !== displayedSlideIndex) {
-      if (transitionType === 'none') {
-        // Direct wisselen
-        setPrevSlideIndex(null)
-        setDisplayedSlideIndex(currentSlideIndex)
-        setIsTransitioning(false)
-      } else {
-        // Animatie: bewaar vorige slide voor wipe/zoom
-        setPrevSlideIndex(displayedSlideIndex)
-        setIsTransitioning(true)
+    if (currentSlideIndex === displayedSlideIndex) return
+    if (transitionType === 'wipe') setPrevSlideIndex(displayedSlideIndex)
+    else setPrevSlideIndex(null)
+    setDisplayedSlideIndex(currentSlideIndex)
+  }, [currentSlideIndex, displayedSlideIndex, transitionType])
 
-        setTimeout(() => {
-          setDisplayedSlideIndex(currentSlideIndex)
-          setIsTransitioning(false)
-          setPrevSlideIndex(null)
-        }, halfDuration)
-      }
-    }
-  }, [currentSlideIndex, displayedSlideIndex, transitionType, halfDuration])
+  useEffect(() => {
+    if (prevSlideIndex == null) return
+    const t = setTimeout(() => setPrevSlideIndex(null), transitionDuration)
+    return () => clearTimeout(t)
+  }, [prevSlideIndex, transitionDuration])
 
   // Auto-play video's wanneer slide verandert
   useEffect(() => {
@@ -130,8 +118,8 @@ export default function Presentation({
 
   return (
     <div className="presentation-slide bg-black w-screen h-screen overflow-hidden">
-      {/* Onderlaag: vorige slide (voor wipe/zoom effect) */}
-      {(transitionType === 'wipe' || transitionType === 'zoom') && prevSlide && (
+      {/* Onderlaag bij wissen: de vorige dia blijft staan terwijl de nieuwe eroverheen schuift */}
+      {transitionType === 'wipe' && prevSlide && !prevSlide.isVideo && (
         <img
           src={prevSlide.url}
           alt=""
@@ -148,7 +136,7 @@ export default function Presentation({
           ref={videoRef}
           src={currentSlide.url}
           className={`w-full h-full object-cover ${getTransitionClass()}`}
-          style={{ position: 'absolute', inset: 0, zIndex: 1 }}
+          style={{ position: 'absolute', inset: 0, zIndex: 1, animationDuration: `${transitionDuration}ms` }}
           autoPlay
           muted={currentSlide.videoMuted ?? true}
           onEnded={handleVideoEnded}
@@ -160,7 +148,7 @@ export default function Presentation({
           src={currentSlide?.url}
           alt=""
           className={`w-full h-full object-cover ${getTransitionClass()}`}
-          style={{ position: 'absolute', inset: 0, zIndex: 1 }}
+          style={{ position: 'absolute', inset: 0, zIndex: 1, animationDuration: `${transitionDuration}ms` }}
         />
       )}
     </div>
