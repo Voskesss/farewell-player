@@ -3,6 +3,7 @@ import Joyride, { STATUS } from 'react-joyride'
 import MusicPlayer from './MusicPlayer'
 import RemoteQRCode from './RemoteQRCode'
 import { useTranslation } from '../i18n'
+import { overgangVoor } from './Presentation'
 
 export default function Controller({
   presentation,
@@ -1516,9 +1517,11 @@ export default function Controller({
                     </>
                   ) : (
                     <img
+                      key={currentSlideIndex}
                       src={currentSlide?.url}
                       alt={`Slide ${currentSlideIndex + 1}`}
-                      className="max-w-full max-h-full object-contain"
+                      className={`max-w-full max-h-full object-contain ${overgangVoor(presentation, currentSlideIndex).klasse}`}
+                      style={{ animationDuration: `${overgangVoor(presentation, currentSlideIndex).duur}ms` }}
                     />
                   )}
                 </div>
