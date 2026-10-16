@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 
 // Bepaal welke sessie bij een globale slide index hoort (voor per-sessie transition)
-function getSessionForSlideIndex(presentation, globalIndex) {
+export function getSessionForSlideIndex(presentation, globalIndex) {
   if (!presentation?.sessions?.length) return null
   let count = 0
   for (const session of presentation.sessions) {
@@ -10,6 +10,15 @@ function getSessionForSlideIndex(presentation, globalIndex) {
     count += n
   }
   return presentation.sessions[0] || null
+}
+
+/** Overgang van de dia op deze plek: soort, CSS-klasse en snelheid (zelfde als het voorbeeld in de app). */
+export function overgangVoor(presentation, index) {
+  const session = getSessionForSlideIndex(presentation, index)
+  const type = session?.transition || presentation?.settings?.transition || 'fade'
+  const duur = Number(session?.transitionDuration) || Number(presentation?.settings?.transitionDuration) || 1000
+  const klasse = { wipe: 'farewell-wipe', zoom: 'farewell-zoom', fadeBlack: 'farewell-fade-black', fade: 'farewell-fade' }[type] || ''
+  return { type, duur, klasse }
 }
 
 export default function Presentation({
